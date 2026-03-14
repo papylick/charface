@@ -1,3 +1,5 @@
+import Link from 'next/link'
+
 export default function Home() {
   return (
     <main style={{minHeight:'100vh', background:'#0f0f0f', color:'white', fontFamily:'sans-serif'}}>
@@ -6,8 +8,8 @@ export default function Home() {
       <nav style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 32px', borderBottom:'1px solid #222'}}>
         <span style={{fontSize:'22px', fontWeight:'600'}}>char<span style={{color:'#7F77DD'}}>faces</span></span>
         <div style={{display:'flex', gap:'12px'}}>
-          <button style={{background:'transparent', border:'1px solid #444', color:'white', padding:'8px 16px', borderRadius:'8px', cursor:'pointer'}}>Giriş yap</button>
-          <button style={{background:'#7F77DD', border:'none', color:'white', padding:'8px 16px', borderRadius:'8px', cursor:'pointer'}}>Üye ol</button>
+          <Link href="/giris"><button style={{background:'transparent', border:'1px solid #444', color:'white', padding:'8px 16px', borderRadius:'8px', cursor:'pointer'}}>Giriş yap</button></Link>
+          <Link href="/giris"><button style={{background:'#7F77DD', border:'none', color:'white', padding:'8px 16px', borderRadius:'8px', cursor:'pointer'}}>Üye ol</button></Link>
         </div>
       </nav>
 
@@ -20,9 +22,9 @@ export default function Home() {
         <p style={{fontSize:'18px', color:'#888', marginBottom:'32px', maxWidth:'500px', margin:'0 auto 32px'}}>
           Hayal ettiğin karakterleri AI ile üret, topluluğunla paylaş.
         </p>
-        <button style={{background:'#7F77DD', border:'none', color:'white', padding:'14px 32px', borderRadius:'10px', fontSize:'16px', cursor:'pointer'}}>
+        <Link href="/giris"><button style={{background:'#7F77DD', border:'none', color:'white', padding:'14px 32px', borderRadius:'10px', fontSize:'16px', cursor:'pointer'}}>
           Hemen başla
-        </button>
+        </button></Link>
       </div>
 
       {/* GRID */}
