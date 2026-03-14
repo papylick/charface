@@ -33,7 +33,9 @@ export default function Home() {
     setKullanici(null)
   }
 
-  async function toggleBegeni(karakterId) {
+  async function toggleBegeni(e, karakterId) {
+    e.preventDefault()
+    e.stopPropagation()
     if (!kullanici) { window.location.href = '/giris'; return }
     if (begeniler[karakterId]) {
       await supabase.from('begeniler').delete().eq('karakter_id', karakterId).eq('kullanici_id', kullanici.id)
@@ -96,29 +98,33 @@ export default function Home() {
         </h2>
         <div style={{display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:'16px'}}>
           {filtrelenmis.map((k, i) => (
-            <div key={k.id} style={{background: renkler[i % renkler.length], border:'1px solid #333', borderRadius:'12px', overflow:'hidden'}}>
-              <div style={{height:'200px', overflow:'hidden'}}>
-                {k.gorsel_url ? (
-                  <img src={k.gorsel_url} style={{width:'100%', height:'100%', objectFit:'cover'}}/>
-                ) : (
-                  <div style={{width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'48px', background:'rgba(127,119,221,0.1)'}}>📖</div>
-                )}
-              </div>
-              <div style={{padding:'12px 16px'}}>
-                <div style={{fontWeight:'600', fontSize:'15px'}}>{k.karakter_adi}</div>
-                <div style={{fontSize:'12px', color:'#888', marginTop:'4px'}}>{k.kitap_adi}</div>
-                {k.aciklama && <div style={{fontSize:'12px', color:'#666', marginTop:'6px', lineHeight:'1.4'}}>{k.aciklama.slice(0, 80)}</div>}
-                <div style={{marginTop:'10px', display:'flex', alignItems:'center', justifyContent:'space-between'}}>
-                  <button
-                    onClick={() => toggleBegeni(k.id)}
-                    style={{background:'transparent', border:'none', cursor:'pointer', fontSize:'18px', display:'flex', alignItems:'center', gap:'4px', color: begeniler[k.id] ? '#D4537E' : '#666', padding:'0'}}
-                  >
-                    {begeniler[k.id] ? '❤️' : '🤍'} <span style={{fontSize:'13px'}}>{k.begeniler?.[0]?.count || 0}</span>
-                  </button>
-                  <span style={{fontSize:'11px', color:'#555'}}>{k.kullanici_email?.split('@')[0]}</span>
+            <Link key={k.id} href={`/karakter/${k.id}`} style={{textDecoration:'none', color:'white'}}>
+              <div style={{background: renkler[i % renkler.length], border:'1px solid #333', borderRadius:'12px', overflow:'hidden', cursor:'pointer', transition:'border-color 0.2s'}}
+                onMouseEnter={e => e.currentTarget.style.borderColor='#7F77DD'}
+                onMouseLeave={e => e.currentTarget.style.borderColor='#333'}>
+                <div style={{height:'200px', overflow:'hidden'}}>
+                  {k.gorsel_url ? (
+                    <img src={k.gorsel_url} style={{width:'100%', height:'100%', objectFit:'cover'}}/>
+                  ) : (
+                    <div style={{width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'48px', background:'rgba(127,119,221,0.1)'}}>📖</div>
+                  )}
+                </div>
+                <div style={{padding:'12px 16px'}}>
+                  <div style={{fontWeight:'600', fontSize:'15px'}}>{k.karakter_adi}</div>
+                  <div style={{fontSize:'12px', color:'#888', marginTop:'4px'}}>{k.kitap_adi}</div>
+                  {k.aciklama && <div style={{fontSize:'12px', color:'#666', marginTop:'6px', lineHeight:'1.4'}}>{k.aciklama.slice(0, 80)}</div>}
+                  <div style={{marginTop:'10px', display:'flex', alignItems:'center', justifyContent:'space-between'}}>
+                    <button
+                      onClick={(e) => toggleBegeni(e, k.id)}
+                      style={{background:'transparent', border:'none', cursor:'pointer', fontSize:'18px', display:'flex', alignItems:'center', gap:'4px', color: begeniler[k.id] ? '#D4537E' : '#666', padding:'0'}}
+                    >
+                      {begeniler[k.id] ? '❤️' : '🤍'} <span style={{fontSize:'13px'}}>{k.begeniler?.[0]?.count || 0}</span>
+                    </button>
+                    <span style={{fontSize:'11px', color:'#555'}}>{k.kullanici_email?.split('@')[0]}</span>
+                  </div>
                 </div>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       </div>
