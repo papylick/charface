@@ -8,17 +8,42 @@ export default function Home() {
   const [kullanici, setKullanici] = useState(null)
   const [karakterler, setKarakterler] = useState([])
   const [arama, setArama] = useState('')
+  const [begeniler, setBegeniler] = useState({})
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setKullanici(data.user))
-    supabase.from('karakterler').select('*').order('created_at', { ascending: false }).then(({ data }) => {
+    supabase.from('karakterler').select('*, begeniler(count)').order('created_at', { ascending: false }).then(({ data }) => {
       if (data) setKarakterler(data)
     })
   }, [])
 
+  useEffect(() => {
+    if (!kullanici) return
+    supabase.from('begeniler').select('karakter_id').eq('kullanici_id', kullanici.id).then(({ data }) => {
+      if (data) {
+        const obj = {}
+        data.forEach(b => obj[b.karakter_id] = true)
+        setBegeniler(obj)
+      }
+    })
+  }, [kullanici])
+
   async function cikisYap() {
     await supabase.auth.signOut()
     setKullanici(null)
+  }
+
+  async function toggleBegeni(karakterId) {
+    if (!kullanici) { window.location.href = '/giris'; return }
+    if (begeniler[karakterId]) {
+      await supabase.from('begeniler').delete().eq('karakter_id', karakterId).eq('kullanici_id', kullanici.id)
+      setBegeniler(prev => ({ ...prev, [karakterId]: false }))
+      setKarakterler(prev => prev.map(k => k.id === karakterId ? { ...k, begeniler: [{ count: Math.max(0, (k.begeniler?.[0]?.count || 1) - 1) }] } : k))
+    } else {
+      await supabase.from('begeniler').insert({ karakter_id: karakterId, kullanici_id: kullanici.id })
+      setBegeniler(prev => ({ ...prev, [karakterId]: true }))
+      setKarakterler(prev => prev.map(k => k.id === karakterId ? { ...k, begeniler: [{ count: (k.begeniler?.[0]?.count || 0) + 1 }] } : k))
+    }
   }
 
   const filtrelenmis = karakterler.filter(k =>
@@ -71,7 +96,7 @@ export default function Home() {
         </h2>
         <div style={{display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:'16px'}}>
           {filtrelenmis.map((k, i) => (
-            <div key={k.id} style={{background: renkler[i % renkler.length], border:'1px solid #333', borderRadius:'12px', overflow:'hidden', cursor:'pointer'}}>
+            <div key={k.id} style={{background: renkler[i % renkler.length], border:'1px solid #333', borderRadius:'12px', overflow:'hidden'}}>
               <div style={{height:'200px', overflow:'hidden'}}>
                 {k.gorsel_url ? (
                   <img src={k.gorsel_url} style={{width:'100%', height:'100%', objectFit:'cover'}}/>
@@ -83,6 +108,15 @@ export default function Home() {
                 <div style={{fontWeight:'600', fontSize:'15px'}}>{k.karakter_adi}</div>
                 <div style={{fontSize:'12px', color:'#888', marginTop:'4px'}}>{k.kitap_adi}</div>
                 {k.aciklama && <div style={{fontSize:'12px', color:'#666', marginTop:'6px', lineHeight:'1.4'}}>{k.aciklama.slice(0, 80)}</div>}
+                <div style={{marginTop:'10px', display:'flex', alignItems:'center', justifyContent:'space-between'}}>
+                  <button
+                    onClick={() => toggleBegeni(k.id)}
+                    style={{background:'transparent', border:'none', cursor:'pointer', fontSize:'18px', display:'flex', alignItems:'center', gap:'4px', color: begeniler[k.id] ? '#D4537E' : '#666', padding:'0'}}
+                  >
+                    {begeniler[k.id] ? '❤️' : '🤍'} <span style={{fontSize:'13px'}}>{k.begeniler?.[0]?.count || 0}</span>
+                  </button>
+                  <span style={{fontSize:'11px', color:'#555'}}>{k.kullanici_email?.split('@')[0]}</span>
+                </div>
               </div>
             </div>
           ))}
@@ -90,4 +124,3 @@ export default function Home() {
       </div>
     </main>
   )
-}git add .
