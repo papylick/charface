@@ -7,6 +7,7 @@ import { supabase } from './lib/supabase'
 export default function Home() {
   const [kullanici, setKullanici] = useState(null)
   const [karakterler, setKarakterler] = useState([])
+  const [arama, setArama] = useState('')
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setKullanici(data.user))
@@ -19,6 +20,11 @@ export default function Home() {
     await supabase.auth.signOut()
     setKullanici(null)
   }
+
+  const filtrelenmis = karakterler.filter(k =>
+    k.karakter_adi.toLowerCase().includes(arama.toLowerCase()) ||
+    k.kitap_adi.toLowerCase().includes(arama.toLowerCase())
+  )
 
   const renkler = ['#1a1a3e','#2d0a1a','#1a1a1a','#1a0000','#1a2d0a','#1a0a2d']
 
@@ -42,7 +48,7 @@ export default function Home() {
         </div>
       </nav>
 
-      <div style={{textAlign:'center', padding:'60px 32px 40px'}}>
+      <div style={{textAlign:'center', padding:'60px 32px 20px'}}>
         <h1 style={{fontSize:'48px', fontWeight:'700', marginBottom:'16px', lineHeight:'1.2'}}>
           Kitap karakterlerini<br/>
           <span style={{color:'#7F77DD'}}>görselleştir</span>
@@ -50,17 +56,21 @@ export default function Home() {
         <p style={{fontSize:'18px', color:'#888', maxWidth:'500px', margin:'0 auto 32px'}}>
           Hayal ettiğin karakterleri AI ile üret, topluluğunla paylaş.
         </p>
-        <Link href="/karakter-ekle"><button style={{background:'#7F77DD', border:'none', color:'white', padding:'14px 32px', borderRadius:'10px', fontSize:'16px', cursor:'pointer'}}>
-          Hemen başla
-        </button></Link>
+        <input
+          type="text"
+          placeholder="Karakter veya kitap ara..."
+          value={arama}
+          onChange={e => setArama(e.target.value)}
+          style={{width:'100%', maxWidth:'500px', padding:'14px 20px', background:'#1a1a1a', border:'1px solid #444', borderRadius:'12px', color:'white', fontSize:'15px', boxSizing:'border-box', marginBottom:'16px'}}
+        />
       </div>
 
       <div style={{padding:'0 32px 40px', maxWidth:'900px', margin:'0 auto'}}>
         <h2 style={{fontSize:'18px', fontWeight:'600', marginBottom:'20px', color:'#888'}}>
-          {karakterler.length > 0 ? `${karakterler.length} karakter` : 'Henüz karakter yok'}
+          {filtrelenmis.length > 0 ? `${filtrelenmis.length} karakter` : 'Sonuç bulunamadı'}
         </h2>
         <div style={{display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:'16px'}}>
-          {karakterler.map((k, i) => (
+          {filtrelenmis.map((k, i) => (
             <div key={k.id} style={{background: renkler[i % renkler.length], border:'1px solid #333', borderRadius:'12px', overflow:'hidden', cursor:'pointer'}}>
               <div style={{height:'200px', overflow:'hidden'}}>
                 {k.gorsel_url ? (
@@ -80,4 +90,4 @@ export default function Home() {
       </div>
     </main>
   )
-}
+}git add .
