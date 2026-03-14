@@ -62,8 +62,12 @@ export default function Home() {
         <div style={{display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:'16px'}}>
           {karakterler.map((k, i) => (
             <div key={k.id} style={{background: renkler[i % renkler.length], border:'1px solid #333', borderRadius:'12px', overflow:'hidden', cursor:'pointer'}}>
-              <div style={{height:'200px', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'48px', background:'rgba(127,119,221,0.1)'}}>
-                📖
+              <div style={{height:'200px', overflow:'hidden'}}>
+                {k.gorsel_url ? (
+                  <img src={k.gorsel_url} style={{width:'100%', height:'100%', objectFit:'cover'}}/>
+                ) : (
+                  <div style={{width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'48px', background:'rgba(127,119,221,0.1)'}}>📖</div>
+                )}
               </div>
               <div style={{padding:'12px 16px'}}>
                 <div style={{fontWeight:'600', fontSize:'15px'}}>{k.karakter_adi}</div>
