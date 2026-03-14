@@ -61,7 +61,7 @@ export default function Home() {
           {kullanici ? (
             <>
               <Link href="/karakter-ekle"><button style={{background:'#7F77DD', border:'none', color:'white', padding:'8px 16px', borderRadius:'8px', cursor:'pointer'}}>+ Karakter ekle</button></Link>
-              <span style={{fontSize:'14px', color:'#888'}}>{kullanici.email}</span>
+              <Link href="/profil"><button style={{background:'transparent', border:'1px solid #7F77DD', color:'#7F77DD', padding:'8px 16px', borderRadius:'8px', cursor:'pointer'}}>{kullanici.email?.split('@')[0]}</button></Link>
               <button onClick={cikisYap} style={{background:'transparent', border:'1px solid #444', color:'white', padding:'8px 16px', borderRadius:'8px', cursor:'pointer'}}>Çıkış yap</button>
             </>
           ) : (
@@ -124,3 +124,4 @@ export default function Home() {
       </div>
     </main>
   )
+}
