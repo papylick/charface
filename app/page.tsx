@@ -1,19 +1,42 @@
+'use client'
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
+import { supabase } from './lib/supabase'
 
 export default function Home() {
+  const [kullanici, setKullanici] = useState(null)
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setKullanici(data.user)
+    })
+  }, [])
+
+  async function cikisYap() {
+    await supabase.auth.signOut()
+    setKullanici(null)
+  }
+
   return (
     <main style={{minHeight:'100vh', background:'#0f0f0f', color:'white', fontFamily:'sans-serif'}}>
       
-      {/* NAV */}
       <nav style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 32px', borderBottom:'1px solid #222'}}>
         <span style={{fontSize:'22px', fontWeight:'600'}}>char<span style={{color:'#7F77DD'}}>faces</span></span>
-        <div style={{display:'flex', gap:'12px'}}>
-          <Link href="/giris"><button style={{background:'transparent', border:'1px solid #444', color:'white', padding:'8px 16px', borderRadius:'8px', cursor:'pointer'}}>Giriş yap</button></Link>
-          <Link href="/giris"><button style={{background:'#7F77DD', border:'none', color:'white', padding:'8px 16px', borderRadius:'8px', cursor:'pointer'}}>Üye ol</button></Link>
+        <div style={{display:'flex', gap:'12px', alignItems:'center'}}>
+          {kullanici ? (
+            <>
+              <span style={{fontSize:'14px', color:'#888'}}>{kullanici.email}</span>
+              <button onClick={cikisYap} style={{background:'transparent', border:'1px solid #444', color:'white', padding:'8px 16px', borderRadius:'8px', cursor:'pointer'}}>Çıkış yap</button>
+            </>
+          ) : (
+            <>
+              <Link href="/giris"><button style={{background:'transparent', border:'1px solid #444', color:'white', padding:'8px 16px', borderRadius:'8px', cursor:'pointer'}}>Giriş yap</button></Link>
+              <Link href="/giris"><button style={{background:'#7F77DD', border:'none', color:'white', padding:'8px 16px', borderRadius:'8px', cursor:'pointer'}}>Üye ol</button></Link>
+            </>
+          )}
         </div>
       </nav>
 
-      {/* HERO */}
       <div style={{textAlign:'center', padding:'80px 32px 40px'}}>
         <h1 style={{fontSize:'48px', fontWeight:'700', marginBottom:'16px', lineHeight:'1.2'}}>
           Kitap karakterlerini<br/>
@@ -27,7 +50,6 @@ export default function Home() {
         </button></Link>
       </div>
 
-      {/* GRID */}
       <div style={{display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:'16px', padding:'40px 32px', maxWidth:'900px', margin:'0 auto'}}>
         {[
           {isim:'Gandalf', kitap:'Yüzüklerin Efendisi', renk:'#1a1a3e', emoji:'🧙'},
