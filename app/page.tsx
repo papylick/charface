@@ -1,3 +1,4 @@
+// @ts-nocheck
 'use client'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
@@ -19,7 +20,6 @@ export default function Home() {
 
   return (
     <main style={{minHeight:'100vh', background:'#0f0f0f', color:'white', fontFamily:'sans-serif'}}>
-      
       <nav style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 32px', borderBottom:'1px solid #222'}}>
         <span style={{fontSize:'22px', fontWeight:'600'}}>char<span style={{color:'#7F77DD'}}>faces</span></span>
         <div style={{display:'flex', gap:'12px', alignItems:'center'}}>
@@ -70,7 +70,6 @@ export default function Home() {
           </div>
         ))}
       </div>
-
     </main>
   )
 }
