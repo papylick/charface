@@ -7,7 +7,9 @@ import { supabase } from './lib/supabase'
 export default function Home() {
   const router = useRouter()
   const [kullanici, setKullanici] = useState(null)
+  const [profilAdi, setProfilAdi] = useState('')
   const [karakterler, setKarakterler] = useState([])
+  const [profiller, setProfiller] = useState({})
   const [arama, setArama] = useState('')
   const [begeniler, setBegeniler] = useState({})
   const [kitapAcik, setKitapAcik] = useState(false)
@@ -19,10 +21,38 @@ export default function Home() {
   }, [router])
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setKullanici(data.user))
-    supabase.from('karakterler').select('*, begeniler(count)').order('created_at', { ascending: false }).then(({ data }) => {
-      if (data) setKarakterler(data)
+    supabase.auth.getUser().then(async ({ data }) => {
+      setKullanici(data.user)
+      if (data.user) {
+        const { data: profil } = await supabase
+          .from('profiller')
+          .select('kullanici_adi')
+          .eq('id', data.user.id)
+          .single()
+        setProfilAdi(profil?.kullanici_adi || data.user.email?.split('@')[0])
+      }
     })
+
+    supabase.from('karakterler')
+      .select('*, begeniler(count)')
+      .order('created_at', { ascending: false })
+      .then(({ data }) => {
+        if (data) {
+          setKarakterler(data)
+          // Tüm kullanıcı idlerini topla ve profilleri çek
+          const ids = [...new Set(data.map(k => k.kullanici_id))]
+          supabase.from('profiller')
+            .select('id, kullanici_adi')
+            .in('id', ids)
+            .then(({ data: profilData }) => {
+              if (profilData) {
+                const obj = {}
+                profilData.forEach(p => obj[p.id] = p.kullanici_adi)
+                setProfiller(obj)
+              }
+            })
+        }
+      })
   }, [])
 
   useEffect(() => {
@@ -39,6 +69,7 @@ export default function Home() {
   async function cikisYap() {
     await supabase.auth.signOut()
     setKullanici(null)
+    setProfilAdi('')
   }
 
   async function toggleBegeni(e, karakterId) {
@@ -76,7 +107,6 @@ export default function Home() {
     }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap');
-
         .kitap-kaplagi {
           position: fixed; inset: 0; display: flex; align-items: center;
           justify-content: center; z-index: 1000;
@@ -86,8 +116,7 @@ export default function Home() {
         .kitap-kaplagi.aciliyor { opacity: 0; pointer-events: none; }
         .kitap-wrapper { perspective: 2000px; cursor: pointer; }
         .kitap {
-          width: min(600px, 85vw);
-          height: min(700px, 80vh);
+          width: min(600px, 85vw); height: min(700px, 80vh);
           position: relative; transform-style: preserve-3d; transition: transform 0.3s ease;
         }
         .kitap:hover { transform: rotateY(-5deg) rotateX(2deg); }
@@ -137,11 +166,7 @@ export default function Home() {
           gap: 3px; position: absolute; inset: 0; z-index: 1;
         }
         .grid-preview img { width: 100%; height: 100%; object-fit: cover; filter: saturate(0.7) brightness(0.6); }
-
-        .nav-inner {
-          display: flex; align-items: center; justify-content: space-between;
-          padding: 20px 48px;
-        }
+        .nav-inner { display: flex; align-items: center; justify-content: space-between; padding: 20px 48px; }
         @media (max-width: 768px) {
           .nav-inner { padding: 12px 16px !important; }
           .nav-logo { font-size: 20px !important; }
@@ -156,9 +181,7 @@ export default function Home() {
         @media (max-width: 480px) {
           .karakter-grid { grid-template-columns: repeat(1, 1fr) !important; }
           .hero-title { font-size: 22px !important; }
-          .stat-row { gap: 8px !important; flex-wrap: wrap !important; }
         }
-
         .card-hover { transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.4s ease; }
         .card-hover:hover { transform: translateY(-8px); box-shadow: -4px 16px 40px rgba(0,0,0,0.6), 0 0 20px rgba(127,119,221,0.2); }
         .card-appear { animation: cardAppear 0.6s ease forwards; opacity: 0; }
@@ -242,7 +265,7 @@ export default function Home() {
               {kullanici ? (
                 <>
                   <button className="btn-primary nav-btn" onClick={() => navigate('/karakter-ekle')}>✦ Ekle</button>
-                  <button className="btn-secondary nav-btn" onClick={() => navigate('/profil')}>{kullanici.email?.split('@')[0]}</button>
+                  <button className="btn-secondary nav-btn" onClick={() => navigate('/profil')}>{profilAdi}</button>
                   <button onClick={cikisYap} style={{background:'transparent', border:'none', color:'#666', cursor:'pointer', fontSize:'12px', fontFamily:'Cinzel, serif'}}
                     onMouseEnter={e => e.target.style.color='#999'}
                     onMouseLeave={e => e.target.style.color='#666'}>Çıkış</button>
@@ -311,7 +334,7 @@ export default function Home() {
                       style={{fontSize:'11px', color:'#555', cursor:'pointer', fontFamily:'Cinzel, serif', letterSpacing:'0.5px', transition:'color 0.2s'}}
                       onMouseEnter={e=>e.target.style.color='#c9a96e'}
                       onMouseLeave={e=>e.target.style.color='#555'}>
-                      {k.kullanici_email?.split('@')[0]}
+                      {profiller[k.kullanici_id] || k.kullanici_email?.split('@')[0]}
                     </span>
                   </div>
                 </div>

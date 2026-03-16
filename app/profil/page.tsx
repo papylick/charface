@@ -143,7 +143,6 @@ export default function Profil() {
 
       <div className="main-padding" style={{maxWidth:'1000px', margin:'0 auto', padding:'48px 32px'}}>
 
-        {/* Profil kartı */}
         <div style={{background:'linear-gradient(145deg, #12101a, #1a1228)', border:'1px solid rgba(201,169,110,0.15)', borderRadius:'16px', padding:'40px', marginBottom:'48px', boxShadow:'0 20px 60px rgba(0,0,0,0.4)', position:'relative', overflow:'hidden'}}>
           <div style={{position:'absolute', left:0, top:0, bottom:0, width:'4px', background:'linear-gradient(to bottom, #7F77DD, #c9a96e)', opacity:0.6}}/>
 
@@ -159,6 +158,11 @@ export default function Profil() {
                     className="edit-input"
                     value={yeniKullaniciAdi}
                     onChange={e => setYeniKullaniciAdi(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                    onInput={e => { e.target.value = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') }}
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    autoComplete="off"
+                    spellCheck={false}
                     placeholder="kullanici_adi"
                   />
                   <button className="btn-primary" style={{padding:'8px 16px', fontSize:'11px'}} onClick={kullaniciAdiKaydet}>Kaydet</button>
@@ -169,7 +173,7 @@ export default function Profil() {
                   <div style={{fontSize:'24px', fontWeight:'700', fontFamily:'Cinzel, serif', letterSpacing:'1px'}}>
                     {goruntulenenAd}
                   </div>
-                  <button onClick={() => setKullaniciAdiDuzenle(true)} style={{background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:'12px', transition:'color 0.2s'}}
+                  <button onClick={() => setKullaniciAdiDuzenle(true)} style={{background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:'16px', transition:'color 0.2s'}}
                     onMouseEnter={e => e.target.style.color='#c9a96e'}
                     onMouseLeave={e => e.target.style.color='#555'}>
                     ✎
@@ -203,7 +207,6 @@ export default function Profil() {
           </div>
         </div>
 
-        {/* Karakterler */}
         <div style={{display:'flex', alignItems:'center', gap:'16px', marginBottom:'28px'}}>
           <div style={{width:'30px', height:'1px', background:'rgba(201,169,110,0.4)'}}/>
           <h2 style={{fontSize:'11px', fontWeight:'600', color:'#c9a96e', letterSpacing:'3px', fontFamily:'Cinzel, serif'}}>
