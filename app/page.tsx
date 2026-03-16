@@ -264,7 +264,8 @@ export default function Home() {
             <div style={{display:'flex', gap:'8px', alignItems:'center'}}>
               {kullanici ? (
                 <>
-                  <button className="btn-primary nav-btn" onClick={() => navigate('/karakter-ekle')}>✦ Ekle</button><button className="btn-ghost nav-btn" onClick={() => navigate('/feed')}>Akış</button>
+                  <button className="btn-primary nav-btn" onClick={() => navigate('/karakter-ekle')}>✦ Ekle</button>
+                  <button className="btn-secondary nav-btn" onClick={() => navigate('/feed')}>Akış</button>
                   <button className="btn-secondary nav-btn" onClick={() => navigate('/profil')}>{profilAdi}</button>
                   <button onClick={cikisYap} style={{background:'transparent', border:'none', color:'#666', cursor:'pointer', fontSize:'12px', fontFamily:'Cinzel, serif'}}
                     onMouseEnter={e => e.target.style.color='#999'}
