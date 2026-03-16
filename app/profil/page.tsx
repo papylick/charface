@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import BildirimZili from '../components/BildirimZili'
 
 export default function Profil() {
   const router = useRouter()
@@ -63,11 +64,7 @@ export default function Profil() {
   )
 
   return (
-    <main style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #0a0a0f 0%, #120a1a 50%, #0a0f0a 100%)',
-      color: 'white', fontFamily: 'Georgia, serif'
-    }}>
+    <main style={{minHeight:'100vh', background:'linear-gradient(135deg, #0a0a0f 0%, #120a1a 50%, #0a0f0a 100%)', color:'white', fontFamily:'Georgia, serif'}}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap');
         .card-hover { transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.4s ease; }
@@ -96,8 +93,11 @@ export default function Profil() {
         <a href="/" style={{fontSize:'24px', fontFamily:'Cinzel, serif', fontWeight:'700', letterSpacing:'2px', textDecoration:'none', color:'white'}}>
           char<span style={{color:'#7F77DD'}}>faces</span>
         </a>
-        <div style={{display:'flex', gap:'12px', alignItems:'center'}}>
-          <button className="btn-primary" onClick={() => router.push('/karakter-ekle')}>✦ Karakter Ekle</button><button className="btn-secondary" onClick={() => router.push('/feed')}>Akış</button>
+        <div style={{display:'flex', gap:'10px', alignItems:'center'}}>
+          <BildirimZili kullaniciId={kullanici?.id} />
+          <button className="btn-primary" onClick={() => router.push('/karakter-ekle')}>✦ Karakter Ekle</button>
+          <button className="btn-secondary" onClick={() => router.push('/koleksiyonlar')}>📚 Listelerim</button>
+          <button className="btn-secondary" onClick={() => router.push('/feed')}>Akış</button>
           <button className="btn-secondary" onClick={() => router.push('/ayarlar')}>⚙ Ayarlar</button>
           <button onClick={cikisYap} style={{background:'transparent', border:'none', color:'#666', cursor:'pointer', fontSize:'13px', fontFamily:'Cinzel, serif', letterSpacing:'0.5px', transition:'color 0.3s'}}
             onMouseEnter={e => e.target.style.color='#999'}

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabase'
+import BildirimZili from '../../components/BildirimZili'
 
 export default function KarakterDetay() {
   const params = useParams()
@@ -20,10 +21,27 @@ export default function KarakterDetay() {
   const [duzenleAdi, setDuzenleAdi] = useState('')
   const [duzenleKitap, setDuzenleKitap] = useState('')
   const [duzenleAciklama, setDuzenleAciklama] = useState('')
+  const [koleksiyonlar, setKoleksiyonlar] = useState([])
+  const [koleksiyonMenuAcik, setKoleksiyonMenuAcik] = useState(false)
+  const [eklenenKoleksiyonlar, setEklenenKoleksiyonlar] = useState({})
 
   useEffect(() => {
     if (!id) return
-    supabase.auth.getUser().then(({ data }) => setKullanici(data.user))
+    supabase.auth.getUser().then(({ data }) => {
+      setKullanici(data.user)
+      if (data.user) {
+        supabase.from('koleksiyonlar').select('*').eq('kullanici_id', data.user.id).then(({ data: kols }) => {
+          if (kols) setKoleksiyonlar(kols)
+        })
+        supabase.from('koleksiyon_karakterler').select('koleksiyon_id').eq('karakter_id', id).then(({ data: ekli }) => {
+          if (ekli) {
+            const obj = {}
+            ekli.forEach(e => obj[e.koleksiyon_id] = true)
+            setEklenenKoleksiyonlar(obj)
+          }
+        })
+      }
+    })
     supabase.from('karakterler').select('*, begeniler(count)').eq('id', id).single().then(({ data }) => {
       if (data) {
         setKarakter(data)
@@ -54,6 +72,23 @@ export default function KarakterDetay() {
     } else {
       await supabase.from('begeniler').insert({ karakter_id: id, kullanici_id: kullanici.id })
       setBegendi(true); setBegeniSayisi(prev => prev + 1)
+      if (karakter.kullanici_id !== kullanici.id) {
+        fetch('/api/bildirim', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kullanici_id: karakter.kullanici_id, gonderen_id: kullanici.id, tip: 'begeni', karakter_id: id })
+        })
+      }
+    }
+  }
+
+  async function koleksiyonaToggle(koleksiyonId) {
+    if (eklenenKoleksiyonlar[koleksiyonId]) {
+      await supabase.from('koleksiyon_karakterler').delete().eq('koleksiyon_id', koleksiyonId).eq('karakter_id', id)
+      setEklenenKoleksiyonlar(prev => ({ ...prev, [koleksiyonId]: false }))
+    } else {
+      await supabase.from('koleksiyon_karakterler').insert({ koleksiyon_id: koleksiyonId, karakter_id: id })
+      setEklenenKoleksiyonlar(prev => ({ ...prev, [koleksiyonId]: true }))
     }
   }
 
@@ -64,7 +99,16 @@ export default function KarakterDetay() {
       karakter_id: id, kullanici_id: kullanici.id,
       kullanici_email: kullanici.email, yorum: yeniYorum
     }).select().single()
-    if (!error && data) { setYorumlar(prev => [...prev, data]); setYeniYorum('') }
+    if (!error && data) {
+      setYorumlar(prev => [...prev, data]); setYeniYorum('')
+      if (karakter.kullanici_id !== kullanici.id) {
+        fetch('/api/bildirim', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kullanici_id: karakter.kullanici_id, gonderen_id: kullanici.id, tip: 'yorum', karakter_id: id })
+        })
+      }
+    }
   }
 
   async function karakterSil() {
@@ -121,9 +165,12 @@ export default function KarakterDetay() {
         .btn-danger:hover { background:rgba(192,57,43,0.1); }
         .gonder-btn { padding:14px 24px; background:linear-gradient(135deg,#7F77DD,#9d77dd); border:none; border-radius:8px; color:white; cursor:pointer; font-family:'Cinzel',serif; font-size:12px; letter-spacing:1px; transition:all 0.3s ease; box-shadow:0 4px 15px rgba(127,119,221,0.3); }
         .gonder-btn:hover { transform:translateY(-2px); }
-        .yorum-kart { background:linear-gradient(145deg,#12101a,#1a1228); border:1px solid rgba(201,169,110,0.1); border-radius:10px; padding:16px 18px 16px 22px; margin-bottom:12px; position:relative; overflow:hidden; transition:border-color 0.3s ease; }
+        .yorum-kart { background:linear-gradient(145deg,#12101a,#1a1228); border:1px solid rgba(201,169,110,0.1); border-radius:10px; padding:16px 18px 16px 22px; margin-bottom:12px; position:relative; transition:border-color 0.3s ease; }
         .yorum-kart:hover { border-color:rgba(201,169,110,0.25); }
         .yorum-kart::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:linear-gradient(to bottom,#7F77DD,#c9a96e); opacity:0.5; }
+        .koleksiyon-menu { position:absolute; top:100%; left:0; background:linear-gradient(145deg,#12101a,#1a1228); border:1px solid rgba(201,169,110,0.2); border-radius:10px; padding:8px; min-width:220px; z-index:9999; box-shadow:0 10px 40px rgba(0,0,0,0.8); margin-top:8px; }
+        .koleksiyon-item { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:6px; cursor:pointer; transition:background 0.2s; font-family:'EB Garamond',serif; font-size:14px; color:#bbb; }
+        .koleksiyon-item:hover { background:rgba(201,169,110,0.08); color:white; }
       `}</style>
 
       <nav style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'20px 48px', borderBottom:'1px solid rgba(201,169,110,0.2)', background:'rgba(10,10,15,0.9)', backdropFilter:'blur(10px)', position:'sticky', top:0, zIndex:100, boxShadow:'0 4px 30px rgba(0,0,0,0.5)'}}>
@@ -131,17 +178,19 @@ export default function KarakterDetay() {
           char<span style={{color:'#7F77DD'}}>faces</span>
         </a>
         {kullanici && (
-          <button onClick={() => router.push('/profil')} style={{background:'transparent', border:'1px solid rgba(201,169,110,0.4)', color:'#c9a96e', padding:'10px 20px', borderRadius:'6px', cursor:'pointer', fontFamily:'Cinzel, serif', fontSize:'13px', letterSpacing:'0.5px', transition:'all 0.3s ease'}}
-            onMouseEnter={e => e.target.style.background='rgba(201,169,110,0.1)'}
-            onMouseLeave={e => e.target.style.background='transparent'}>
-            {kullanici.email?.split('@')[0]}
-          </button>
+          <div style={{display:'flex', alignItems:'center', gap:'10px'}}>
+            <BildirimZili kullaniciId={kullanici.id} />
+            <button onClick={() => router.push('/profil')} style={{background:'transparent', border:'1px solid rgba(201,169,110,0.4)', color:'#c9a96e', padding:'10px 20px', borderRadius:'6px', cursor:'pointer', fontFamily:'Cinzel, serif', fontSize:'13px', letterSpacing:'0.5px', transition:'all 0.3s ease'}}
+              onMouseEnter={e => e.target.style.background='rgba(201,169,110,0.1)'}
+              onMouseLeave={e => e.target.style.background='transparent'}>
+              {kullanici.email?.split('@')[0]}
+            </button>
+          </div>
         )}
       </nav>
 
       <div style={{maxWidth:'780px', margin:'0 auto', padding:'48px 32px'}}>
 
-        {/* Görsel */}
         {karakter.gorsel_url && (
           <div style={{position:'relative', marginBottom:'32px', borderRadius:'16px', overflow:'hidden', boxShadow:'0 20px 60px rgba(0,0,0,0.6)', border:'1px solid rgba(201,169,110,0.15)'}}>
             <img src={karakter.gorsel_url} style={{width:'100%', maxHeight:'480px', objectFit:'cover', display:'block'}}/>
@@ -149,9 +198,8 @@ export default function KarakterDetay() {
           </div>
         )}
 
-        {/* Karakter bilgisi */}
-        <div style={{background:'linear-gradient(145deg, #12101a, #1a1228)', border:'1px solid rgba(201,169,110,0.15)', borderRadius:'16px', padding:'32px', marginBottom:'32px', boxShadow:'0 8px 32px rgba(0,0,0,0.4)', position:'relative', overflow:'hidden'}}>
-          <div style={{position:'absolute', left:0, top:0, bottom:0, width:'4px', background:'linear-gradient(to bottom, #7F77DD, #c9a96e)', opacity:0.6}}/>
+        <div style={{background:'linear-gradient(145deg, #12101a, #1a1228)', border:'1px solid rgba(201,169,110,0.15)', borderRadius:'16px', padding:'32px', marginBottom:'32px', boxShadow:'0 8px 32px rgba(0,0,0,0.4)', position:'relative'}}>
+          <div style={{position:'absolute', left:0, top:0, bottom:0, width:'4px', background:'linear-gradient(to bottom, #7F77DD, #c9a96e)', opacity:0.6, borderRadius:'16px 0 0 16px'}}/>
 
           {duzenle ? (
             <div>
@@ -174,7 +222,7 @@ export default function KarakterDetay() {
                 {karakter.aciklama && <p style={{fontSize:'16px', color:'#aaa', lineHeight:'1.8', fontFamily:'EB Garamond, serif'}}>{karakter.aciklama}</p>}
               </div>
 
-              <div style={{display:'flex', alignItems:'center', gap:'12px', margin:'20px 0', }}>
+              <div style={{display:'flex', alignItems:'center', gap:'12px', margin:'20px 0'}}>
                 <div style={{flex:1, height:'1px', background:'rgba(201,169,110,0.15)'}}/>
                 <span style={{color:'#c9a96e', fontSize:'10px', opacity:0.6}}>✦</span>
                 <div style={{flex:1, height:'1px', background:'rgba(201,169,110,0.15)'}}/>
@@ -187,6 +235,34 @@ export default function KarakterDetay() {
                     <span style={{fontSize:'14px'}}>{begeniSayisi}</span>
                     <span style={{fontSize:'11px', color:'#888'}}>BEĞENİ</span>
                   </button>
+
+                  {kullanici && (
+                    <div style={{position:'relative'}}>
+                      <button className="btn-ghost" onClick={() => setKoleksiyonMenuAcik(prev => !prev)}>
+                        📚 Koleksiyona Ekle
+                      </button>
+                      {koleksiyonMenuAcik && (
+                        <div className="koleksiyon-menu">
+                          {koleksiyonlar.length === 0 ? (
+                            <div style={{padding:'12px', textAlign:'center'}}>
+                              <div style={{fontSize:'13px', color:'#555', fontFamily:'EB Garamond, serif', fontStyle:'italic', marginBottom:'8px'}}>Liste yok</div>
+                              <button onClick={() => router.push('/koleksiyonlar')} style={{background:'linear-gradient(135deg,#7F77DD,#9d77dd)', border:'none', color:'white', padding:'8px 14px', borderRadius:'6px', cursor:'pointer', fontFamily:'Cinzel, serif', fontSize:'11px'}}>
+                                Liste Oluştur
+                              </button>
+                            </div>
+                          ) : (
+                            koleksiyonlar.map(k => (
+                              <div key={k.id} className="koleksiyon-item" onClick={() => koleksiyonaToggle(k.id)}>
+                                <span style={{fontSize:'16px'}}>{eklenenKoleksiyonlar[k.id] ? '✅' : '○'}</span>
+                                <span>{k.ad}</span>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {benimKarakterim && (
                     <>
                       <button className="btn-ghost" onClick={() => setDuzenle(true)}>✎ Düzenle</button>
@@ -213,7 +289,6 @@ export default function KarakterDetay() {
           )}
         </div>
 
-        {/* Yorumlar */}
         <div>
           <div style={{display:'flex', alignItems:'center', gap:'16px', marginBottom:'24px'}}>
             <div style={{width:'30px', height:'1px', background:'rgba(201,169,110,0.4)'}}/>

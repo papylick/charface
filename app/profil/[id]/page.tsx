@@ -2,11 +2,12 @@
 'use client'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabase'
 
 export default function KullaniciProfil() {
   const params = useParams()
+  const router = useRouter()
   const id = params.id
   const [profil, setProfil] = useState(null)
   const [karakterler, setKarakterler] = useState([])
@@ -96,12 +97,14 @@ export default function KullaniciProfil() {
       </nav>
 
       <div style={{maxWidth:'900px', margin:'0 auto', padding:'40px 32px'}}>
-        <div style={{background:'#1a1a1a', border:'1px solid #333', borderRadius:'16px', padding:'32px', marginBottom:'32px', display:'flex', alignItems:'center', gap:'24px'}}>
+        <div style={{background:'#1a1a1a', border:'1px solid #333', borderRadius:'16px', padding:'32px', marginBottom:'32px', display:'flex', alignItems:'center', gap:'24px', flexWrap:'wrap'}}>
           <div style={{width:'80px', height:'80px', borderRadius:'50%', background:'#7F77DD', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'32px', fontWeight:'700', flexShrink:0}}>
-            {profil?.email?.[0]?.toUpperCase() || '?'}
+            {(profil?.kullanici_adi || profil?.email || '?')[0].toUpperCase()}
           </div>
           <div style={{flex:1}}>
-            <div style={{fontSize:'20px', fontWeight:'600', marginBottom:'4px'}}>{profil?.email?.split('@')[0] || 'Kullanıcı'}</div>
+            <div style={{fontSize:'20px', fontWeight:'600', marginBottom:'4px'}}>
+              {profil?.kullanici_adi || profil?.email?.split('@')[0] || 'Kullanıcı'}
+            </div>
             <div style={{display:'flex', gap:'24px', marginTop:'12px'}}>
               <div style={{textAlign:'center'}}>
                 <div style={{fontSize:'24px', fontWeight:'700'}}>{karakterler.length}</div>
@@ -117,13 +120,38 @@ export default function KullaniciProfil() {
               </div>
             </div>
           </div>
+
           {aktifKullanici?.id !== id && (
-            <button onClick={takipToggle} style={{
-              background: takipEdiyorMu ? 'transparent' : '#7F77DD',
-              border: takipEdiyorMu ? '1px solid #7F77DD' : 'none',
-              color: 'white', padding:'10px 24px', borderRadius:'8px', cursor:'pointer', fontWeight:'600'
+            <div style={{display:'flex', gap:'10px', flexWrap:'wrap'}}>
+              <button onClick={takipToggle} style={{
+                background: takipEdiyorMu ? 'transparent' : '#7F77DD',
+                border: takipEdiyorMu ? '1px solid #7F77DD' : 'none',
+                color: 'white', padding:'10px 24px', borderRadius:'8px', cursor:'pointer', fontWeight:'600'
+              }}>
+                {takipEdiyorMu ? 'Takibi bırak' : 'Takip et'}
+              </button>
+              <button onClick={() => {
+                if (!aktifKullanici) { window.location.href = '/giris'; return }
+                router.push(`/mesajlar/${id}`)
+              }} style={{
+                background: 'transparent',
+                border: '1px solid rgba(201,169,110,0.4)',
+                color: '#c9a96e', padding:'10px 24px', borderRadius:'8px', cursor:'pointer', fontWeight:'600',
+                fontFamily:'Cinzel, serif', fontSize:'13px'
+              }}>
+                💬 Mesaj Gönder
+              </button>
+            </div>
+          )}
+
+          {aktifKullanici?.id === id && (
+            <button onClick={() => router.push('/mesajlar')} style={{
+              background: 'transparent',
+              border: '1px solid rgba(201,169,110,0.4)',
+              color: '#c9a96e', padding:'10px 24px', borderRadius:'8px', cursor:'pointer', fontWeight:'600',
+              fontFamily:'Cinzel, serif', fontSize:'13px'
             }}>
-              {takipEdiyorMu ? 'Takibi bırak' : 'Takip et'}
+              💬 Mesajlarım
             </button>
           )}
         </div>

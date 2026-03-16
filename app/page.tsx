@@ -1,8 +1,11 @@
 // @ts-nocheck
 'use client'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from './lib/supabase'
+import BildirimZili from './components/BildirimZili'
+
+const SAYFA_BOYUTU = 9
 
 export default function Home() {
   const router = useRouter()
@@ -14,11 +17,61 @@ export default function Home() {
   const [begeniler, setBegeniler] = useState({})
   const [kitapAcik, setKitapAcik] = useState(false)
   const [icerikGoster, setIcerikGoster] = useState(false)
+  const [sayfa, setSayfa] = useState(0)
+  const [dahaVar, setDahaVar] = useState(true)
+  const [yukleniyorDaha, setYukleniyorDaha] = useState(false)
+  const gozlemciRef = useRef(null)
+  const sonElemanRef = useRef(null)
 
   const navigate = useCallback((url: string) => {
     setIcerikGoster(false)
     setTimeout(() => router.push(url), 600)
   }, [router])
+
+  async function karakterleriYukle(sayfaNo: number, aramaMetni: string = '') {
+    if (sayfaNo === 0) setKarakterler([])
+    setYukleniyorDaha(true)
+
+    let query = supabase
+      .from('karakterler')
+      .select('*, begeniler(count)')
+      .order('created_at', { ascending: false })
+      .range(sayfaNo * SAYFA_BOYUTU, (sayfaNo + 1) * SAYFA_BOYUTU - 1)
+
+    if (aramaMetni) {
+      query = supabase
+        .from('karakterler')
+        .select('*, begeniler(count)')
+        .or(`karakter_adi.ilike.%${aramaMetni}%,kitap_adi.ilike.%${aramaMetni}%`)
+        .order('created_at', { ascending: false })
+        .range(sayfaNo * SAYFA_BOYUTU, (sayfaNo + 1) * SAYFA_BOYUTU - 1)
+    }
+
+    const { data } = await query
+
+    if (data) {
+      if (sayfaNo === 0) {
+        setKarakterler(data)
+      } else {
+        setKarakterler(prev => [...prev, ...data])
+      }
+      setDahaVar(data.length === SAYFA_BOYUTU)
+
+      const ids = [...new Set(data.map(k => k.kullanici_id))]
+      if (ids.length > 0) {
+        const { data: profilData } = await supabase
+          .from('profiller')
+          .select('id, kullanici_adi')
+          .in('id', ids)
+        if (profilData) {
+          const obj = {}
+          profilData.forEach(p => obj[p.id] = p.kullanici_adi)
+          setProfiller(prev => ({ ...prev, ...obj }))
+        }
+      }
+    }
+    setYukleniyorDaha(false)
+  }
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
@@ -32,27 +85,7 @@ export default function Home() {
         setProfilAdi(profil?.kullanici_adi || data.user.email?.split('@')[0])
       }
     })
-
-    supabase.from('karakterler')
-      .select('*, begeniler(count)')
-      .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        if (data) {
-          setKarakterler(data)
-          // Tüm kullanıcı idlerini topla ve profilleri çek
-          const ids = [...new Set(data.map(k => k.kullanici_id))]
-          supabase.from('profiller')
-            .select('id, kullanici_adi')
-            .in('id', ids)
-            .then(({ data: profilData }) => {
-              if (profilData) {
-                const obj = {}
-                profilData.forEach(p => obj[p.id] = p.kullanici_adi)
-                setProfiller(obj)
-              }
-            })
-        }
-      })
+    karakterleriYukle(0)
   }, [])
 
   useEffect(() => {
@@ -66,13 +99,38 @@ export default function Home() {
     })
   }, [kullanici])
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSayfa(0)
+      karakterleriYukle(0, arama)
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [arama])
+
+  useEffect(() => {
+    if (gozlemciRef.current) gozlemciRef.current.disconnect()
+    gozlemciRef.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && dahaVar && !yukleniyorDaha) {
+        setSayfa(prev => {
+          const yeniSayfa = prev + 1
+          karakterleriYukle(yeniSayfa, arama)
+          return yeniSayfa
+        })
+      }
+    }, { threshold: 0.1 })
+    if (sonElemanRef.current) {
+      gozlemciRef.current.observe(sonElemanRef.current)
+    }
+    return () => gozlemciRef.current?.disconnect()
+  }, [dahaVar, yukleniyorDaha, arama])
+
   async function cikisYap() {
     await supabase.auth.signOut()
     setKullanici(null)
     setProfilAdi('')
   }
 
-  async function toggleBegeni(e, karakterId) {
+  async function toggleBegeni(e, karakterId, karakterSahibiId) {
     e.preventDefault()
     e.stopPropagation()
     if (!kullanici) { navigate('/giris'); return }
@@ -84,6 +142,13 @@ export default function Home() {
       await supabase.from('begeniler').insert({ karakter_id: karakterId, kullanici_id: kullanici.id })
       setBegeniler(prev => ({ ...prev, [karakterId]: true }))
       setKarakterler(prev => prev.map(k => k.id === karakterId ? { ...k, begeniler: [{ count: (k.begeniler?.[0]?.count || 0) + 1 }] } : k))
+      if (karakterSahibiId !== kullanici.id) {
+        fetch('/api/bildirim', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kullanici_id: karakterSahibiId, gonderen_id: kullanici.id, tip: 'begeni', karakter_id: karakterId })
+        })
+      }
     }
   }
 
@@ -92,114 +157,58 @@ export default function Home() {
     setTimeout(() => setIcerikGoster(true), 1200)
   }
 
-  const filtrelenmis = karakterler.filter(k =>
-    k.karakter_adi.toLowerCase().includes(arama.toLowerCase()) ||
-    k.kitap_adi.toLowerCase().includes(arama.toLowerCase())
-  )
-
   return (
-    <main style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #0a0a0f 0%, #120a1a 50%, #0a0f0a 100%)',
-      color: 'white',
-      fontFamily: '"Georgia", serif',
-      overflow: icerikGoster ? 'auto' : 'hidden'
-    }}>
+    <main style={{minHeight:'100vh', background:'linear-gradient(135deg, #0a0a0f 0%, #120a1a 50%, #0a0f0a 100%)', color:'white', fontFamily:'"Georgia", serif', overflow:icerikGoster?'auto':'hidden'}}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap');
-        .kitap-kaplagi {
-          position: fixed; inset: 0; display: flex; align-items: center;
-          justify-content: center; z-index: 1000;
-          background: linear-gradient(135deg, #0a0a0f 0%, #120a1a 50%, #0a0f0a 100%);
-          transition: opacity 0.6s ease 0.9s;
+        .kitap-kaplagi { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:1000; background:linear-gradient(135deg, #0a0a0f 0%, #120a1a 50%, #0a0f0a 100%); transition:opacity 0.6s ease 0.9s; }
+        .kitap-kaplagi.aciliyor { opacity:0; pointer-events:none; }
+        .kitap-wrapper { perspective:2000px; cursor:pointer; }
+        .kitap { width:min(600px, 85vw); height:min(700px, 80vh); position:relative; transform-style:preserve-3d; transition:transform 0.3s ease; }
+        .kitap:hover { transform:rotateY(-5deg) rotateX(2deg); }
+        .kitap.acik { transform:rotateY(-180deg) scale(0.8) !important; transition:transform 1s cubic-bezier(0.645, 0.045, 0.355, 1.000) !important; }
+        .kitap-on { position:absolute; inset:0; border-radius:4px 16px 16px 4px; border:1px solid rgba(201,169,110,0.4); box-shadow:-12px 12px 60px rgba(0,0,0,0.9), 0 0 80px rgba(127,119,221,0.1); transform-origin:left center; backface-visibility:hidden; overflow:hidden; background:#0a0a12; }
+        .kitap-sirt { position:absolute; left:-16px; top:0; bottom:0; width:16px; background:linear-gradient(to right, #050310, #1a0a2e); border-radius:4px 0 0 4px; border-left:1px solid rgba(201,169,110,0.2); box-shadow:-4px 0 10px rgba(0,0,0,0.5); }
+        .kitap-arka { position:absolute; inset:0; background:linear-gradient(135deg, #120a1e, #1a0a2e); border-radius:4px 16px 16px 4px; border:1px solid rgba(201,169,110,0.2); }
+        .kapak-overlay { position:absolute; inset:0; background:linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.2) 30%, rgba(0,0,0,0.2) 60%, rgba(0,0,0,0.85) 100%); z-index:2; }
+        .kapak-cerceve { position:absolute; inset:12px; border:1px solid rgba(201,169,110,0.3); border-radius:2px 12px 12px 2px; z-index:3; pointer-events:none; }
+        .kapak-icerik { position:absolute; inset:0; z-index:4; display:flex; flex-direction:column; justify-content:space-between; padding:28px 24px; }
+        .grid-preview { display:grid; grid-template-columns:repeat(3, 1fr); gap:3px; position:absolute; inset:0; z-index:1; }
+        .grid-preview img { width:100%; height:100%; object-fit:cover; filter:saturate(0.7) brightness(0.6); }
+        .nav-inner { display:flex; align-items:center; justify-content:space-between; padding:20px 48px; }
+        @media (max-width:768px) {
+          .nav-inner { padding:12px 16px !important; }
+          .nav-logo { font-size:20px !important; }
+          .nav-btn { padding:8px 12px !important; font-size:11px !important; }
+          .hero-title { font-size:28px !important; }
+          .hero-subtitle { font-size:10px !important; letter-spacing:2px !important; }
+          .karakter-grid { grid-template-columns:repeat(2, 1fr) !important; gap:12px !important; }
+          .main-padding { padding:0 16px 40px !important; }
+          .hero-padding { padding:40px 16px 24px !important; }
+          .search-input-wrapper { max-width:100% !important; }
         }
-        .kitap-kaplagi.aciliyor { opacity: 0; pointer-events: none; }
-        .kitap-wrapper { perspective: 2000px; cursor: pointer; }
-        .kitap {
-          width: min(600px, 85vw); height: min(700px, 80vh);
-          position: relative; transform-style: preserve-3d; transition: transform 0.3s ease;
+        @media (max-width:480px) {
+          .karakter-grid { grid-template-columns:repeat(1, 1fr) !important; }
+          .hero-title { font-size:22px !important; }
         }
-        .kitap:hover { transform: rotateY(-5deg) rotateX(2deg); }
-        .kitap.acik {
-          transform: rotateY(-180deg) scale(0.8) !important;
-          transition: transform 1s cubic-bezier(0.645, 0.045, 0.355, 1.000) !important;
-        }
-        .kitap-on {
-          position: absolute; inset: 0;
-          border-radius: 4px 16px 16px 4px;
-          border: 1px solid rgba(201,169,110,0.4);
-          box-shadow: -12px 12px 60px rgba(0,0,0,0.9), 0 0 80px rgba(127,119,221,0.1);
-          transform-origin: left center; backface-visibility: hidden;
-          overflow: hidden; background: #0a0a12;
-        }
-        .kitap-sirt {
-          position: absolute; left: -16px; top: 0; bottom: 0; width: 16px;
-          background: linear-gradient(to right, #050310, #1a0a2e);
-          border-radius: 4px 0 0 4px;
-          border-left: 1px solid rgba(201,169,110,0.2);
-          box-shadow: -4px 0 10px rgba(0,0,0,0.5);
-        }
-        .kitap-arka {
-          position: absolute; inset: 0;
-          background: linear-gradient(135deg, #120a1e, #1a0a2e);
-          border-radius: 4px 16px 16px 4px;
-          border: 1px solid rgba(201,169,110,0.2);
-        }
-        .kapak-overlay {
-          position: absolute; inset: 0;
-          background: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.2) 30%, rgba(0,0,0,0.2) 60%, rgba(0,0,0,0.85) 100%);
-          z-index: 2;
-        }
-        .kapak-cerceve {
-          position: absolute; inset: 12px;
-          border: 1px solid rgba(201,169,110,0.3);
-          border-radius: 2px 12px 12px 2px;
-          z-index: 3; pointer-events: none;
-        }
-        .kapak-icerik {
-          position: absolute; inset: 0; z-index: 4;
-          display: flex; flex-direction: column;
-          justify-content: space-between; padding: 28px 24px;
-        }
-        .grid-preview {
-          display: grid; grid-template-columns: repeat(3, 1fr);
-          gap: 3px; position: absolute; inset: 0; z-index: 1;
-        }
-        .grid-preview img { width: 100%; height: 100%; object-fit: cover; filter: saturate(0.7) brightness(0.6); }
-        .nav-inner { display: flex; align-items: center; justify-content: space-between; padding: 20px 48px; }
-        @media (max-width: 768px) {
-          .nav-inner { padding: 12px 16px !important; }
-          .nav-logo { font-size: 20px !important; }
-          .nav-btn { padding: 8px 12px !important; font-size: 11px !important; }
-          .hero-title { font-size: 28px !important; }
-          .hero-subtitle { font-size: 10px !important; letter-spacing: 2px !important; }
-          .karakter-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 12px !important; }
-          .main-padding { padding: 0 16px 40px !important; }
-          .hero-padding { padding: 40px 16px 24px !important; }
-          .search-input-wrapper { max-width: 100% !important; }
-        }
-        @media (max-width: 480px) {
-          .karakter-grid { grid-template-columns: repeat(1, 1fr) !important; }
-          .hero-title { font-size: 22px !important; }
-        }
-        .card-hover { transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.4s ease; }
-        .card-hover:hover { transform: translateY(-8px); box-shadow: -4px 16px 40px rgba(0,0,0,0.6), 0 0 20px rgba(127,119,221,0.2); }
-        .card-appear { animation: cardAppear 0.6s ease forwards; opacity: 0; }
-        @keyframes cardAppear { 0% { opacity: 0; transform: translateY(20px); } 100% { opacity: 1; transform: translateY(0); } }
-        .icerik { opacity: 0; transform: translateY(20px); transition: opacity 0.6s ease, transform 0.6s ease; }
-        .icerik.gorunen { opacity: 1; transform: translateY(0); }
-        .search-input:focus { outline: none; border-color: #c9a96e !important; box-shadow: 0 0 20px rgba(201,169,110,0.15); }
-        .btn-primary { background: linear-gradient(135deg, #7F77DD, #9d77dd); border: none; color: white; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-family: 'Cinzel', serif; font-size: 13px; letter-spacing: 0.5px; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(127,119,221,0.3); }
-        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(127,119,221,0.5); }
-        .btn-secondary { background: transparent; border: 1px solid #c9a96e; color: #c9a96e; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-family: 'Cinzel', serif; font-size: 13px; letter-spacing: 0.5px; transition: all 0.3s ease; }
-        .btn-secondary:hover { background: rgba(201,169,110,0.1); transform: translateY(-2px); }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #0a0a0f; }
-        ::-webkit-scrollbar-thumb { background: #2a1a3e; border-radius: 3px; }
+        .card-hover { transition:transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.4s ease; }
+        .card-hover:hover { transform:translateY(-8px); box-shadow:-4px 16px 40px rgba(0,0,0,0.6), 0 0 20px rgba(127,119,221,0.2); }
+        .card-appear { animation:cardAppear 0.6s ease forwards; opacity:0; }
+        @keyframes cardAppear { 0%{opacity:0;transform:translateY(20px)} 100%{opacity:1;transform:translateY(0)} }
+        .icerik { opacity:0; transform:translateY(20px); transition:opacity 0.6s ease, transform 0.6s ease; }
+        .icerik.gorunen { opacity:1; transform:translateY(0); }
+        .search-input:focus { outline:none; border-color:#c9a96e !important; box-shadow:0 0 20px rgba(201,169,110,0.15); }
+        .btn-primary { background:linear-gradient(135deg, #7F77DD, #9d77dd); border:none; color:white; padding:10px 20px; border-radius:6px; cursor:pointer; font-family:'Cinzel',serif; font-size:13px; letter-spacing:0.5px; transition:all 0.3s ease; box-shadow:0 4px 15px rgba(127,119,221,0.3); }
+        .btn-primary:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(127,119,221,0.5); }
+        .btn-secondary { background:transparent; border:1px solid #c9a96e; color:#c9a96e; padding:10px 20px; border-radius:6px; cursor:pointer; font-family:'Cinzel',serif; font-size:13px; letter-spacing:0.5px; transition:all 0.3s ease; }
+        .btn-secondary:hover { background:rgba(201,169,110,0.1); transform:translateY(-2px); }
+        ::-webkit-scrollbar { width:6px; }
+        ::-webkit-scrollbar-track { background:#0a0a0f; }
+        ::-webkit-scrollbar-thumb { background:#2a1a3e; border-radius:3px; }
         @keyframes pulse { 0%,100%{opacity:0.5} 50%{opacity:1} }
+        @keyframes spin { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
       `}</style>
 
-      {/* KİTAP KAPAĞI */}
       {!icerikGoster && (
         <div className={`kitap-kaplagi ${kitapAcik ? 'aciliyor' : ''}`}>
           <div style={{position:'absolute', inset:0, pointerEvents:'none', overflow:'hidden'}}>
@@ -214,7 +223,7 @@ export default function Home() {
                 <div className="kitap-on">
                   {karakterler.length > 0 ? (
                     <div className="grid-preview">
-                      {Array.from({length: 9}).map((_, i) => {
+                      {Array.from({length:9}).map((_, i) => {
                         const k = karakterler[i % karakterler.length]
                         return k?.gorsel_url ? (
                           <img key={i} src={k.gorsel_url} alt=""/>
@@ -254,7 +263,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* ANA İÇERİK */}
       <div className={`icerik ${icerikGoster ? 'gorunen' : ''}`}>
         <nav style={{borderBottom:'1px solid rgba(201,169,110,0.2)', background:'rgba(10,10,15,0.9)', backdropFilter:'blur(10px)', position:'sticky', top:0, zIndex:100, boxShadow:'0 4px 30px rgba(0,0,0,0.5)'}}>
           <div className="nav-inner">
@@ -264,6 +272,8 @@ export default function Home() {
             <div style={{display:'flex', gap:'8px', alignItems:'center'}}>
               {kullanici ? (
                 <>
+                  {/* 🔔 BİLDİRİM ZİLİ */}
+                  <BildirimZili kullaniciId={kullanici.id} />
                   <button className="btn-primary nav-btn" onClick={() => navigate('/karakter-ekle')}>✦ Ekle</button>
                   <button className="btn-secondary nav-btn" onClick={() => navigate('/feed')}>Akış</button>
                   <button className="btn-secondary nav-btn" onClick={() => navigate('/profil')}>{profilAdi}</button>
@@ -303,12 +313,12 @@ export default function Home() {
           <div style={{display:'flex', alignItems:'center', gap:'16px', marginBottom:'28px'}}>
             <div style={{width:'30px', height:'1px', background:'rgba(201,169,110,0.4)'}}/>
             <h2 style={{fontSize:'11px', fontWeight:'600', color:'#c9a96e', letterSpacing:'3px', fontFamily:'Cinzel, serif'}}>
-              {filtrelenmis.length > 0 ? `${filtrelenmis.length} KARAKTER` : 'SONUÇ BULUNAMADI'}
+              {karakterler.length > 0 ? `${karakterler.length} KARAKTER` : 'SONUÇ BULUNAMADI'}
             </h2>
             <div style={{flex:1, height:'1px', background:'rgba(201,169,110,0.2)'}}/>
           </div>
           <div className="karakter-grid" style={{display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:'24px'}}>
-            {filtrelenmis.map((k, i) => (
+            {karakterler.map((k, i) => (
               <div key={k.id} className="card-hover card-appear" onClick={() => navigate(`/karakter/${k.id}`)}
                 style={{animationDelay:`${i*0.08}s`, background:'linear-gradient(145deg, #12101a, #1a1228)', border:'1px solid rgba(201,169,110,0.15)', borderRadius:'12px', overflow:'hidden', cursor:'pointer', boxShadow:'0 8px 32px rgba(0,0,0,0.4)', position:'relative'}}>
                 <div style={{position:'absolute', left:0, top:0, bottom:0, width:'4px', background:'linear-gradient(to bottom, #7F77DD, #c9a96e)', opacity:0.6}}/>
@@ -325,7 +335,7 @@ export default function Home() {
                   <div style={{fontSize:'12px', color:'#c9a96e', marginBottom:'8px', fontFamily:'EB Garamond, serif', fontStyle:'italic'}}>{k.kitap_adi}</div>
                   {k.aciklama && <div style={{fontSize:'12px', color:'#666', lineHeight:'1.5', fontFamily:'EB Garamond, serif', marginBottom:'10px'}}>{k.aciklama.slice(0,70)}...</div>}
                   <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', paddingTop:'10px', borderTop:'1px solid rgba(255,255,255,0.05)'}}>
-                    <button onClick={(e) => toggleBegeni(e, k.id)} style={{background:'transparent', border:'none', cursor:'pointer', display:'flex', alignItems:'center', gap:'6px', color:begeniler[k.id]?'#D4537E':'#555', padding:'0', transition:'transform 0.2s ease'}}
+                    <button onClick={(e) => toggleBegeni(e, k.id, k.kullanici_id)} style={{background:'transparent', border:'none', cursor:'pointer', display:'flex', alignItems:'center', gap:'6px', color:begeniler[k.id]?'#D4537E':'#555', padding:'0', transition:'transform 0.2s ease'}}
                       onMouseEnter={e=>e.currentTarget.style.transform='scale(1.2)'}
                       onMouseLeave={e=>e.currentTarget.style.transform='scale(1)'}>
                       <span style={{fontSize:'16px'}}>{begeniler[k.id]?'❤️':'🤍'}</span>
@@ -341,6 +351,20 @@ export default function Home() {
                 </div>
               </div>
             ))}
+          </div>
+
+          <div ref={sonElemanRef} style={{height:'40px', display:'flex', alignItems:'center', justifyContent:'center', marginTop:'20px'}}>
+            {yukleniyorDaha && (
+              <div style={{color:'#c9a96e', fontFamily:'Cinzel, serif', fontSize:'12px', letterSpacing:'2px', display:'flex', alignItems:'center', gap:'8px'}}>
+                <span style={{display:'inline-block', animation:'spin 1s linear infinite'}}>✦</span>
+                YÜKLENİYOR
+              </div>
+            )}
+            {!dahaVar && karakterler.length > 0 && (
+              <div style={{color:'#333', fontFamily:'EB Garamond, serif', fontSize:'13px', fontStyle:'italic'}}>
+                Tüm karakterler yüklendi
+              </div>
+            )}
           </div>
         </div>
 
