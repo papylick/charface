@@ -12,9 +12,6 @@ export default function Profil() {
   const [yukleniyor, setYukleniyor] = useState(true)
   const [takipciSayisi, setTakipciSayisi] = useState(0)
   const [takipEdilenSayisi, setTakipEdilenSayisi] = useState(0)
-  const [kullaniciAdiDuzenle, setKullaniciAdiDuzenle] = useState(false)
-  const [yeniKullaniciAdi, setYeniKullaniciAdi] = useState('')
-  const [mesaj, setMesaj] = useState('')
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
@@ -27,7 +24,6 @@ export default function Profil() {
         .eq('id', data.user.id)
         .single()
       setProfil(profilData)
-      setYeniKullaniciAdi(profilData?.kullanici_adi || '')
 
       const { data: chars } = await supabase
         .from('karakterler')
@@ -51,33 +47,6 @@ export default function Profil() {
       setYukleniyor(false)
     })
   }, [])
-
-  async function kullaniciAdiKaydet() {
-    if (!yeniKullaniciAdi.trim()) { setMesaj('Kullanıcı adı boş olamaz!'); return }
-
-    const { data: mevcutKullanici } = await supabase
-      .from('profiller')
-      .select('id')
-      .eq('kullanici_adi', yeniKullaniciAdi.trim().toLowerCase())
-      .single()
-
-    if (mevcutKullanici && mevcutKullanici.id !== kullanici.id) {
-      setMesaj('Bu kullanıcı adı alınmış!')
-      return
-    }
-
-    const { error } = await supabase
-      .from('profiller')
-      .update({ kullanici_adi: yeniKullaniciAdi.trim().toLowerCase() })
-      .eq('id', kullanici.id)
-
-    if (error) { setMesaj('Hata: ' + error.message); return }
-
-    setProfil(prev => ({ ...prev, kullanici_adi: yeniKullaniciAdi.trim().toLowerCase() }))
-    setKullaniciAdiDuzenle(false)
-    setMesaj('Kullanıcı adı güncellendi!')
-    setTimeout(() => setMesaj(''), 3000)
-  }
 
   async function cikisYap() {
     await supabase.auth.signOut()
@@ -111,33 +80,28 @@ export default function Profil() {
         .btn-secondary:hover { background: rgba(201,169,110,0.1); transform: translateY(-2px); }
         .stat-box { text-align: center; padding: 16px 24px; background: rgba(255,255,255,0.02); border: 1px solid rgba(201,169,110,0.1); border-radius: 8px; transition: all 0.3s ease; }
         .stat-box:hover { background: rgba(201,169,110,0.05); border-color: rgba(201,169,110,0.3); }
-        .edit-input {
-          background: rgba(255,255,255,0.03);
-          border: 1px solid rgba(201,169,110,0.3);
-          border-radius: 6px; color: white;
-          padding: 8px 12px; font-family: 'Cinzel', serif;
-          font-size: 14px; letter-spacing: 1px;
-          transition: all 0.3s ease;
-        }
-        .edit-input:focus { outline: none; border-color: rgba(201,169,110,0.6); }
         @media (max-width: 768px) {
           .profil-kart { flex-direction: column !important; text-align: center; }
           .stat-row { justify-content: center !important; }
           .karakter-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 12px !important; }
           .main-padding { padding: 24px 16px !important; }
+          .nav-padding { padding: 12px 16px !important; }
         }
         @media (max-width: 480px) {
           .karakter-grid { grid-template-columns: repeat(1, 1fr) !important; }
         }
       `}</style>
 
-      <nav style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'20px 48px', borderBottom:'1px solid rgba(201,169,110,0.2)', background:'rgba(10,10,15,0.9)', backdropFilter:'blur(10px)', position:'sticky', top:0, zIndex:100, boxShadow:'0 4px 30px rgba(0,0,0,0.5)'}}>
+      <nav style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'20px 48px', borderBottom:'1px solid rgba(201,169,110,0.2)', background:'rgba(10,10,15,0.9)', backdropFilter:'blur(10px)', position:'sticky', top:0, zIndex:100, boxShadow:'0 4px 30px rgba(0,0,0,0.5)'}} className="nav-padding">
         <a href="/" style={{fontSize:'24px', fontFamily:'Cinzel, serif', fontWeight:'700', letterSpacing:'2px', textDecoration:'none', color:'white'}}>
           char<span style={{color:'#7F77DD'}}>faces</span>
         </a>
         <div style={{display:'flex', gap:'12px', alignItems:'center'}}>
           <button className="btn-primary" onClick={() => router.push('/karakter-ekle')}>✦ Karakter Ekle</button>
-          <button className="btn-secondary" onClick={cikisYap}>Çıkış</button>
+          <button className="btn-secondary" onClick={() => router.push('/ayarlar')}>⚙ Ayarlar</button>
+          <button onClick={cikisYap} style={{background:'transparent', border:'none', color:'#666', cursor:'pointer', fontSize:'13px', fontFamily:'Cinzel, serif', letterSpacing:'0.5px', transition:'color 0.3s'}}
+            onMouseEnter={e => e.target.style.color='#999'}
+            onMouseLeave={e => e.target.style.color='#666'}>Çıkış</button>
         </div>
       </nav>
 
@@ -152,35 +116,9 @@ export default function Profil() {
             </div>
 
             <div style={{flex:1}}>
-              {kullaniciAdiDuzenle ? (
-                <div style={{display:'flex', gap:'8px', alignItems:'center', marginBottom:'8px', flexWrap:'wrap'}}>
-                  <input
-                    className="edit-input"
-                    value={yeniKullaniciAdi}
-                    onChange={e => setYeniKullaniciAdi(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
-                    onInput={e => { e.target.value = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') }}
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    autoComplete="off"
-                    spellCheck={false}
-                    placeholder="kullanici_adi"
-                  />
-                  <button className="btn-primary" style={{padding:'8px 16px', fontSize:'11px'}} onClick={kullaniciAdiKaydet}>Kaydet</button>
-                  <button className="btn-secondary" style={{padding:'8px 16px', fontSize:'11px'}} onClick={() => setKullaniciAdiDuzenle(false)}>İptal</button>
-                </div>
-              ) : (
-                <div style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'4px', flexWrap:'wrap'}}>
-                  <div style={{fontSize:'24px', fontWeight:'700', fontFamily:'Cinzel, serif', letterSpacing:'1px'}}>
-                    {goruntulenenAd}
-                  </div>
-                  <button onClick={() => setKullaniciAdiDuzenle(true)} style={{background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:'16px', transition:'color 0.2s'}}
-                    onMouseEnter={e => e.target.style.color='#c9a96e'}
-                    onMouseLeave={e => e.target.style.color='#555'}>
-                    ✎
-                  </button>
-                </div>
-              )}
-              {mesaj && <div style={{fontSize:'12px', color:'#c9a96e', fontFamily:'EB Garamond, serif', fontStyle:'italic', marginBottom:'8px'}}>{mesaj}</div>}
+              <div style={{fontSize:'24px', fontWeight:'700', fontFamily:'Cinzel, serif', letterSpacing:'1px', marginBottom:'4px'}}>
+                {goruntulenenAd}
+              </div>
               <div style={{fontSize:'13px', color:'#555', fontFamily:'EB Garamond, serif', fontStyle:'italic', marginBottom:'24px'}}>
                 {kullanici?.email}
               </div>
