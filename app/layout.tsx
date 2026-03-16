@@ -6,6 +6,11 @@ export const metadata: Metadata = {
   description: "Hayal ettiğin kitap karakterlerini AI ile üret, topluluğunla paylaş.",
 };
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+}
+
 export default function RootLayout({
   children,
 }: Readonly<{

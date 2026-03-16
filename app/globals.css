@@ -12,87 +12,40 @@ body {
   font-family: Georgia, serif;
 }
 
-/* SAYFA ÇEVİRME ANİMASYONU */
-.page-transition-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  pointer-events: none;
-  perspective: 1200px;
+/* MOBİL UYUMLULUK */
+@media (max-width: 768px) {
+  /* Navbar */
+  nav {
+    padding: 12px 16px !important;
+  }
+
+  /* Grid - 3 sütundan 2'ye */
+  .grid-3 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* Font boyutları */
+  h1 {
+    font-size: 32px !important;
+  }
+
+  /* Padding */
+  .mobile-padding {
+    padding: 16px !important;
+  }
 }
 
-.page-transition-paper {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    105deg,
-    #e8e0d0 0%,
-    #f5f0e8 30%,
-    #fff8f0 50%,
-    #ede8dc 70%,
-    #ddd5c8 100%
-  );
-  transform-origin: left center;
-  transform: rotateY(0deg);
-  box-shadow: -20px 0 60px rgba(0,0,0,0.5), inset -10px 0 30px rgba(0,0,0,0.1);
-  will-change: transform;
+@media (max-width: 480px) {
+  /* Grid - 2 sütundan 1'e */
+  .grid-3 {
+    grid-template-columns: repeat(1, 1fr) !important;
+  }
+
+  h1 {
+    font-size: 24px !important;
+  }
 }
 
-.page-transition-paper::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 32px,
-    rgba(180,160,120,0.15) 32px,
-    rgba(180,160,120,0.15) 33px
-  );
-}
-
-.page-transition-paper::after {
-  content: '';
-  position: absolute;
-  left: 80px;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: rgba(200,100,100,0.15);
-}
-
-.page-transition-paper .shadow-left {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 40px;
-  background: linear-gradient(to right, rgba(0,0,0,0.2), transparent);
-}
-
-.page-transition-paper .shadow-right {
-  position: absolute;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  width: 80px;
-  background: linear-gradient(to left, rgba(0,0,0,0.15), transparent);
-}
-
-@keyframes flipIn {
-  0% { transform: rotateY(90deg); }
-  100% { transform: rotateY(0deg); }
-}
-
-@keyframes flipOut {
-  0% { transform: rotateY(0deg); }
-  100% { transform: rotateY(-90deg); }
-}
-
-.page-flip-in {
-  animation: flipIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-}
-
-.page-flip-out {
-  animation: flipOut 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-}
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #0a0a0f; }
+::-webkit-scrollbar-thumb { background: #2a1a3e; border-radius: 3px; }

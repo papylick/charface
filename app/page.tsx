@@ -76,6 +76,7 @@ export default function Home() {
     }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap');
+
         .kitap-kaplagi {
           position: fixed; inset: 0; display: flex; align-items: center;
           justify-content: center; z-index: 1000;
@@ -85,8 +86,9 @@ export default function Home() {
         .kitap-kaplagi.aciliyor { opacity: 0; pointer-events: none; }
         .kitap-wrapper { perspective: 2000px; cursor: pointer; }
         .kitap {
-          width: 600px; height: 700px; position: relative;
-          transform-style: preserve-3d; transition: transform 0.3s ease;
+          width: min(600px, 85vw);
+          height: min(700px, 80vh);
+          position: relative; transform-style: preserve-3d; transition: transform 0.3s ease;
         }
         .kitap:hover { transform: rotateY(-5deg) rotateX(2deg); }
         .kitap.acik {
@@ -135,6 +137,28 @@ export default function Home() {
           gap: 3px; position: absolute; inset: 0; z-index: 1;
         }
         .grid-preview img { width: 100%; height: 100%; object-fit: cover; filter: saturate(0.7) brightness(0.6); }
+
+        .nav-inner {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 20px 48px;
+        }
+        @media (max-width: 768px) {
+          .nav-inner { padding: 12px 16px !important; }
+          .nav-logo { font-size: 20px !important; }
+          .nav-btn { padding: 8px 12px !important; font-size: 11px !important; }
+          .hero-title { font-size: 28px !important; }
+          .hero-subtitle { font-size: 10px !important; letter-spacing: 2px !important; }
+          .karakter-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 12px !important; }
+          .main-padding { padding: 0 16px 40px !important; }
+          .hero-padding { padding: 40px 16px 24px !important; }
+          .search-input-wrapper { max-width: 100% !important; }
+        }
+        @media (max-width: 480px) {
+          .karakter-grid { grid-template-columns: repeat(1, 1fr) !important; }
+          .hero-title { font-size: 22px !important; }
+          .stat-row { gap: 8px !important; flex-wrap: wrap !important; }
+        }
+
         .card-hover { transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.4s ease; }
         .card-hover:hover { transform: translateY(-8px); box-shadow: -4px 16px 40px rgba(0,0,0,0.6), 0 0 20px rgba(127,119,221,0.2); }
         .card-appear { animation: cardAppear 0.6s ease forwards; opacity: 0; }
@@ -187,7 +211,7 @@ export default function Home() {
                       <div style={{width:'60%', height:'1px', background:'linear-gradient(to right, transparent, #c9a96e, transparent)', margin:'0 auto'}}/>
                     </div>
                     <div style={{textAlign:'center'}}>
-                      <div style={{fontSize:'48px', fontFamily:'Cinzel, serif', fontWeight:'700', color:'white', letterSpacing:'4px', textShadow:'0 0 40px rgba(127,119,221,0.8), 0 2px 4px rgba(0,0,0,0.9)', marginBottom:'8px'}}>
+                      <div style={{fontSize:'clamp(28px, 6vw, 48px)', fontFamily:'Cinzel, serif', fontWeight:'700', color:'white', letterSpacing:'4px', textShadow:'0 0 40px rgba(127,119,221,0.8), 0 2px 4px rgba(0,0,0,0.9)', marginBottom:'8px'}}>
                         char<span style={{color:'#7F77DD'}}>faces</span>
                       </div>
                       <div style={{fontSize:'12px', letterSpacing:'3px', color:'#c9a96e', fontFamily:'EB Garamond, serif', fontStyle:'italic', opacity:0.8}}>Karakterleri Görselleştir</div>
@@ -209,31 +233,33 @@ export default function Home() {
 
       {/* ANA İÇERİK */}
       <div className={`icerik ${icerikGoster ? 'gorunen' : ''}`}>
-        <nav style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'20px 48px', borderBottom:'1px solid rgba(201,169,110,0.2)', background:'rgba(10,10,15,0.9)', backdropFilter:'blur(10px)', position:'sticky', top:0, zIndex:100, boxShadow:'0 4px 30px rgba(0,0,0,0.5)'}}>
-          <span style={{fontSize:'24px', fontFamily:'Cinzel, serif', fontWeight:'700', letterSpacing:'2px', cursor:'pointer'}} onClick={() => navigate('/')}>
-            char<span style={{color:'#7F77DD'}}>faces</span>
-          </span>
-          <div style={{display:'flex', gap:'16px', alignItems:'center'}}>
-            {kullanici ? (
-              <>
-                <button className="btn-primary" onClick={() => navigate('/karakter-ekle')}>✦ Karakter Ekle</button>
-                <button className="btn-secondary" onClick={() => navigate('/profil')}>{kullanici.email?.split('@')[0]}</button>
-                <button onClick={cikisYap} style={{background:'transparent', border:'none', color:'#666', cursor:'pointer', fontSize:'13px', fontFamily:'Cinzel, serif', letterSpacing:'0.5px'}}
-                  onMouseEnter={e => e.target.style.color='#999'}
-                  onMouseLeave={e => e.target.style.color='#666'}>Çıkış</button>
-              </>
-            ) : (
-              <>
-                <button className="btn-secondary" onClick={() => navigate('/giris')}>Giriş Yap</button>
-                <button className="btn-primary" onClick={() => navigate('/giris')}>Üye Ol</button>
-              </>
-            )}
+        <nav style={{borderBottom:'1px solid rgba(201,169,110,0.2)', background:'rgba(10,10,15,0.9)', backdropFilter:'blur(10px)', position:'sticky', top:0, zIndex:100, boxShadow:'0 4px 30px rgba(0,0,0,0.5)'}}>
+          <div className="nav-inner">
+            <span className="nav-logo" style={{fontSize:'24px', fontFamily:'Cinzel, serif', fontWeight:'700', letterSpacing:'2px', cursor:'pointer'}} onClick={() => navigate('/')}>
+              char<span style={{color:'#7F77DD'}}>faces</span>
+            </span>
+            <div style={{display:'flex', gap:'8px', alignItems:'center'}}>
+              {kullanici ? (
+                <>
+                  <button className="btn-primary nav-btn" onClick={() => navigate('/karakter-ekle')}>✦ Ekle</button>
+                  <button className="btn-secondary nav-btn" onClick={() => navigate('/profil')}>{kullanici.email?.split('@')[0]}</button>
+                  <button onClick={cikisYap} style={{background:'transparent', border:'none', color:'#666', cursor:'pointer', fontSize:'12px', fontFamily:'Cinzel, serif'}}
+                    onMouseEnter={e => e.target.style.color='#999'}
+                    onMouseLeave={e => e.target.style.color='#666'}>Çıkış</button>
+                </>
+              ) : (
+                <>
+                  <button className="btn-secondary nav-btn" onClick={() => navigate('/giris')}>Giriş</button>
+                  <button className="btn-primary nav-btn" onClick={() => navigate('/giris')}>Üye Ol</button>
+                </>
+              )}
+            </div>
           </div>
         </nav>
 
-        <div style={{textAlign:'center', padding:'60px 32px 32px', position:'relative', zIndex:1}}>
-          <div style={{marginBottom:'16px', fontSize:'11px', letterSpacing:'4px', color:'#c9a96e', fontFamily:'Cinzel, serif', opacity:0.8}}>✦ &nbsp; HAYAL ET &nbsp; ✦ &nbsp; ÜRET &nbsp; ✦ &nbsp; PAYLAŞ &nbsp; ✦</div>
-          <h1 style={{fontSize:'52px', fontWeight:'700', marginBottom:'16px', lineHeight:'1.2', fontFamily:'Cinzel, serif', letterSpacing:'2px', textShadow:'0 0 60px rgba(127,119,221,0.3)'}}>
+        <div className="hero-padding" style={{textAlign:'center', padding:'60px 32px 32px', position:'relative', zIndex:1}}>
+          <div className="hero-subtitle" style={{marginBottom:'16px', fontSize:'11px', letterSpacing:'4px', color:'#c9a96e', fontFamily:'Cinzel, serif', opacity:0.8}}>✦ &nbsp; HAYAL ET &nbsp; ✦ &nbsp; ÜRET &nbsp; ✦ &nbsp; PAYLAŞ &nbsp; ✦</div>
+          <h1 className="hero-title" style={{fontSize:'52px', fontWeight:'700', marginBottom:'16px', lineHeight:'1.2', fontFamily:'Cinzel, serif', letterSpacing:'2px', textShadow:'0 0 60px rgba(127,119,221,0.3)'}}>
             Kitap Karakterlerini<br/>
             <span style={{background:'linear-gradient(135deg, #7F77DD, #c9a96e)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text'}}>Görselleştir</span>
           </h1>
@@ -242,14 +268,14 @@ export default function Home() {
             <span style={{color:'#c9a96e', fontSize:'14px'}}>✦</span>
             <div style={{width:'60px', height:'1px', background:'linear-gradient(to left, transparent, #c9a96e)'}}/>
           </div>
-          <div style={{position:'relative', maxWidth:'520px', margin:'0 auto'}}>
+          <div className="search-input-wrapper" style={{position:'relative', maxWidth:'520px', margin:'0 auto'}}>
             <input type="text" placeholder="Karakter veya kitap ara..." value={arama} onChange={e => setArama(e.target.value)} className="search-input"
               style={{width:'100%', padding:'16px 24px 16px 50px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(201,169,110,0.3)', borderRadius:'8px', color:'white', fontSize:'15px', boxSizing:'border-box', fontFamily:'EB Garamond, serif', transition:'all 0.3s ease'}}/>
             <span style={{position:'absolute', left:'18px', top:'50%', transform:'translateY(-50%)', color:'#c9a96e', fontSize:'16px'}}>🔍</span>
           </div>
         </div>
 
-        <div style={{padding:'0 48px 60px', maxWidth:'1100px', margin:'0 auto', position:'relative', zIndex:1}}>
+        <div className="main-padding" style={{padding:'0 48px 60px', maxWidth:'1100px', margin:'0 auto', position:'relative', zIndex:1}}>
           <div style={{display:'flex', alignItems:'center', gap:'16px', marginBottom:'28px'}}>
             <div style={{width:'30px', height:'1px', background:'rgba(201,169,110,0.4)'}}/>
             <h2 style={{fontSize:'11px', fontWeight:'600', color:'#c9a96e', letterSpacing:'3px', fontFamily:'Cinzel, serif'}}>
@@ -257,7 +283,7 @@ export default function Home() {
             </h2>
             <div style={{flex:1, height:'1px', background:'rgba(201,169,110,0.2)'}}/>
           </div>
-          <div style={{display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:'24px'}}>
+          <div className="karakter-grid" style={{display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:'24px'}}>
             {filtrelenmis.map((k, i) => (
               <div key={k.id} className="card-hover card-appear" onClick={() => navigate(`/karakter/${k.id}`)}
                 style={{animationDelay:`${i*0.08}s`, background:'linear-gradient(145deg, #12101a, #1a1228)', border:'1px solid rgba(201,169,110,0.15)', borderRadius:'12px', overflow:'hidden', cursor:'pointer', boxShadow:'0 8px 32px rgba(0,0,0,0.4)', position:'relative'}}>
