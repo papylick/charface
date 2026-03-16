@@ -13,6 +13,7 @@ export default function Profil() {
   const [yukleniyor, setYukleniyor] = useState(true)
   const [takipciSayisi, setTakipciSayisi] = useState(0)
   const [takipEdilenSayisi, setTakipEdilenSayisi] = useState(0)
+  const [okunmamisMesaj, setOkunmamisMesaj] = useState(0)
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
@@ -44,6 +45,14 @@ export default function Profil() {
         .select('*', { count: 'exact', head: true })
         .eq('follower_id', data.user.id)
       setTakipEdilenSayisi(takipEdilen || 0)
+
+      // Okunmamış mesaj sayısı
+      const { count: okunmamis } = await supabase
+        .from('mesajlar')
+        .select('*', { count: 'exact', head: true })
+        .eq('alici_id', data.user.id)
+        .eq('okundu', false)
+      setOkunmamisMesaj(okunmamis || 0)
 
       setYukleniyor(false)
     })
@@ -95,6 +104,19 @@ export default function Profil() {
         </a>
         <div style={{display:'flex', gap:'10px', alignItems:'center'}}>
           <BildirimZili kullaniciId={kullanici?.id} />
+
+          {/* 💬 MESAJ KUTUSU İKONU */}
+          <button onClick={() => router.push('/mesajlar')} style={{background:'transparent', border:'1px solid rgba(201,169,110,0.4)', color:'#c9a96e', width:'42px', height:'42px', borderRadius:'8px', cursor:'pointer', fontSize:'18px', display:'flex', alignItems:'center', justifyContent:'center', position:'relative', transition:'all 0.3s ease'}}
+            onMouseEnter={e => e.currentTarget.style.background='rgba(201,169,110,0.1)'}
+            onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+            💬
+            {okunmamisMesaj > 0 && (
+              <span style={{position:'absolute', top:'-6px', right:'-6px', background:'#c9a96e', color:'#0a0a0f', borderRadius:'50%', width:'18px', height:'18px', fontSize:'10px', fontFamily:'Cinzel, serif', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:'700'}}>
+                {okunmamisMesaj > 9 ? '9+' : okunmamisMesaj}
+              </span>
+            )}
+          </button>
+
           <button className="btn-primary" onClick={() => router.push('/karakter-ekle')}>✦ Karakter Ekle</button>
           <button className="btn-secondary" onClick={() => router.push('/koleksiyonlar')}>📚 Listelerim</button>
           <button className="btn-secondary" onClick={() => router.push('/feed')}>Akış</button>
@@ -106,7 +128,6 @@ export default function Profil() {
       </nav>
 
       <div className="main-padding" style={{maxWidth:'1000px', margin:'0 auto', padding:'48px 32px'}}>
-
         <div style={{background:'linear-gradient(145deg, #12101a, #1a1228)', border:'1px solid rgba(201,169,110,0.15)', borderRadius:'16px', padding:'40px', marginBottom:'48px', boxShadow:'0 20px 60px rgba(0,0,0,0.4)', position:'relative', overflow:'hidden'}}>
           <div style={{position:'absolute', left:0, top:0, bottom:0, width:'4px', background:'linear-gradient(to bottom, #7F77DD, #c9a96e)', opacity:0.6}}/>
 
@@ -114,15 +135,9 @@ export default function Profil() {
             <div style={{width:'90px', height:'90px', borderRadius:'50%', background:'linear-gradient(135deg, #7F77DD, #c9a96e)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'36px', fontWeight:'700', flexShrink:0, fontFamily:'Cinzel, serif', boxShadow:'0 0 30px rgba(127,119,221,0.4)'}}>
               {goruntulenenAd?.[0]?.toUpperCase()}
             </div>
-
             <div style={{flex:1}}>
-              <div style={{fontSize:'24px', fontWeight:'700', fontFamily:'Cinzel, serif', letterSpacing:'1px', marginBottom:'4px'}}>
-                {goruntulenenAd}
-              </div>
-              <div style={{fontSize:'13px', color:'#555', fontFamily:'EB Garamond, serif', fontStyle:'italic', marginBottom:'24px'}}>
-                {kullanici?.email}
-              </div>
-
+              <div style={{fontSize:'24px', fontWeight:'700', fontFamily:'Cinzel, serif', letterSpacing:'1px', marginBottom:'4px'}}>{goruntulenenAd}</div>
+              <div style={{fontSize:'13px', color:'#555', fontFamily:'EB Garamond, serif', fontStyle:'italic', marginBottom:'24px'}}>{kullanici?.email}</div>
               <div className="stat-row" style={{display:'flex', gap:'12px', flexWrap:'wrap'}}>
                 <div className="stat-box">
                   <div style={{fontSize:'28px', fontWeight:'700', fontFamily:'Cinzel, serif', color:'white'}}>{karakterler.length}</div>
@@ -147,9 +162,7 @@ export default function Profil() {
 
         <div style={{display:'flex', alignItems:'center', gap:'16px', marginBottom:'28px'}}>
           <div style={{width:'30px', height:'1px', background:'rgba(201,169,110,0.4)'}}/>
-          <h2 style={{fontSize:'11px', fontWeight:'600', color:'#c9a96e', letterSpacing:'3px', fontFamily:'Cinzel, serif'}}>
-            BENİM KARAKTERLERİM ({karakterler.length})
-          </h2>
+          <h2 style={{fontSize:'11px', fontWeight:'600', color:'#c9a96e', letterSpacing:'3px', fontFamily:'Cinzel, serif'}}>BENİM KARAKTERLERİM ({karakterler.length})</h2>
           <div style={{flex:1, height:'1px', background:'rgba(201,169,110,0.2)'}}/>
         </div>
 

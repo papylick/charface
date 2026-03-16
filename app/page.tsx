@@ -20,6 +20,7 @@ export default function Home() {
   const [sayfa, setSayfa] = useState(0)
   const [dahaVar, setDahaVar] = useState(true)
   const [yukleniyorDaha, setYukleniyorDaha] = useState(false)
+  const [okunmamisMesaj, setOkunmamisMesaj] = useState(0)
   const gozlemciRef = useRef(null)
   const sonElemanRef = useRef(null)
 
@@ -83,6 +84,14 @@ export default function Home() {
           .eq('id', data.user.id)
           .single()
         setProfilAdi(profil?.kullanici_adi || data.user.email?.split('@')[0])
+
+        // Okunmamış mesaj sayısı
+        const { count: okunmamis } = await supabase
+          .from('mesajlar')
+          .select('*', { count: 'exact', head: true })
+          .eq('alici_id', data.user.id)
+          .eq('okundu', false)
+        setOkunmamisMesaj(okunmamis || 0)
       }
     })
     karakterleriYukle(0)
@@ -272,8 +281,18 @@ export default function Home() {
             <div style={{display:'flex', gap:'8px', alignItems:'center'}}>
               {kullanici ? (
                 <>
-                  {/* 🔔 BİLDİRİM ZİLİ */}
                   <BildirimZili kullaniciId={kullanici.id} />
+                  {/* 💬 MESAJ İKONU */}
+                  <button onClick={() => navigate('/mesajlar')} style={{background:'transparent', border:'1px solid rgba(201,169,110,0.4)', color:'#c9a96e', width:'42px', height:'42px', borderRadius:'8px', cursor:'pointer', fontSize:'18px', display:'flex', alignItems:'center', justifyContent:'center', position:'relative', transition:'all 0.3s ease'}}
+                    onMouseEnter={e => e.currentTarget.style.background='rgba(201,169,110,0.1)'}
+                    onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                    💬
+                    {okunmamisMesaj > 0 && (
+                      <span style={{position:'absolute', top:'-6px', right:'-6px', background:'#c9a96e', color:'#0a0a0f', borderRadius:'50%', width:'18px', height:'18px', fontSize:'10px', fontFamily:'Cinzel, serif', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:'700'}}>
+                        {okunmamisMesaj > 9 ? '9+' : okunmamisMesaj}
+                      </span>
+                    )}
+                  </button>
                   <button className="btn-primary nav-btn" onClick={() => navigate('/karakter-ekle')}>✦ Ekle</button>
                   <button className="btn-secondary nav-btn" onClick={() => navigate('/feed')}>Akış</button>
                   <button className="btn-secondary nav-btn" onClick={() => navigate('/profil')}>{profilAdi}</button>
@@ -375,3 +394,4 @@ export default function Home() {
     </main>
   )
 }
+``
