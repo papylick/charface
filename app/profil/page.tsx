@@ -97,7 +97,7 @@ export default function Profil() {
           char<span style={{color:'#7F77DD'}}>faces</span>
         </a>
         <div style={{display:'flex', gap:'12px', alignItems:'center'}}>
-          <button className="btn-primary" onClick={() => router.push('/karakter-ekle')}>✦ Karakter Ekle</button>
+          <button className="btn-primary" onClick={() => router.push('/karakter-ekle')}>✦ Karakter Ekle</button><button className="btn-secondary" onClick={() => router.push('/feed')}>Akış</button>
           <button className="btn-secondary" onClick={() => router.push('/ayarlar')}>⚙ Ayarlar</button>
           <button onClick={cikisYap} style={{background:'transparent', border:'none', color:'#666', cursor:'pointer', fontSize:'13px', fontFamily:'Cinzel, serif', letterSpacing:'0.5px', transition:'color 0.3s'}}
             onMouseEnter={e => e.target.style.color='#999'}
