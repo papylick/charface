@@ -7,15 +7,27 @@ import { supabase } from '../lib/supabase'
 export default function Profil() {
   const router = useRouter()
   const [kullanici, setKullanici] = useState(null)
+  const [profil, setProfil] = useState(null)
   const [karakterler, setKarakterler] = useState([])
   const [yukleniyor, setYukleniyor] = useState(true)
   const [takipciSayisi, setTakipciSayisi] = useState(0)
   const [takipEdilenSayisi, setTakipEdilenSayisi] = useState(0)
+  const [kullaniciAdiDuzenle, setKullaniciAdiDuzenle] = useState(false)
+  const [yeniKullaniciAdi, setYeniKullaniciAdi] = useState('')
+  const [mesaj, setMesaj] = useState('')
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
       if (!data.user) { window.location.href = '/giris'; return }
       setKullanici(data.user)
+
+      const { data: profilData } = await supabase
+        .from('profiller')
+        .select('*')
+        .eq('id', data.user.id)
+        .single()
+      setProfil(profilData)
+      setYeniKullaniciAdi(profilData?.kullanici_adi || '')
 
       const { data: chars } = await supabase
         .from('karakterler')
@@ -40,12 +52,40 @@ export default function Profil() {
     })
   }, [])
 
+  async function kullaniciAdiKaydet() {
+    if (!yeniKullaniciAdi.trim()) { setMesaj('Kullanıcı adı boş olamaz!'); return }
+
+    const { data: mevcutKullanici } = await supabase
+      .from('profiller')
+      .select('id')
+      .eq('kullanici_adi', yeniKullaniciAdi.trim().toLowerCase())
+      .single()
+
+    if (mevcutKullanici && mevcutKullanici.id !== kullanici.id) {
+      setMesaj('Bu kullanıcı adı alınmış!')
+      return
+    }
+
+    const { error } = await supabase
+      .from('profiller')
+      .update({ kullanici_adi: yeniKullaniciAdi.trim().toLowerCase() })
+      .eq('id', kullanici.id)
+
+    if (error) { setMesaj('Hata: ' + error.message); return }
+
+    setProfil(prev => ({ ...prev, kullanici_adi: yeniKullaniciAdi.trim().toLowerCase() }))
+    setKullaniciAdiDuzenle(false)
+    setMesaj('Kullanıcı adı güncellendi!')
+    setTimeout(() => setMesaj(''), 3000)
+  }
+
   async function cikisYap() {
     await supabase.auth.signOut()
     window.location.href = '/'
   }
 
   const toplamBegeni = karakterler.reduce((acc, k) => acc + (k.begeniler?.[0]?.count || 0), 0)
+  const goruntulenenAd = profil?.kullanici_adi || kullanici?.email?.split('@')[0]
 
   if (yukleniyor) return (
     <main style={{minHeight:'100vh', background:'linear-gradient(135deg, #0a0a0f 0%, #120a1a 50%, #0a0f0a 100%)', display:'flex', alignItems:'center', justifyContent:'center'}}>
@@ -57,8 +97,7 @@ export default function Profil() {
     <main style={{
       minHeight: '100vh',
       background: 'linear-gradient(135deg, #0a0a0f 0%, #120a1a 50%, #0a0f0a 100%)',
-      color: 'white',
-      fontFamily: 'Georgia, serif'
+      color: 'white', fontFamily: 'Georgia, serif'
     }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap');
@@ -72,9 +111,26 @@ export default function Profil() {
         .btn-secondary:hover { background: rgba(201,169,110,0.1); transform: translateY(-2px); }
         .stat-box { text-align: center; padding: 16px 24px; background: rgba(255,255,255,0.02); border: 1px solid rgba(201,169,110,0.1); border-radius: 8px; transition: all 0.3s ease; }
         .stat-box:hover { background: rgba(201,169,110,0.05); border-color: rgba(201,169,110,0.3); }
+        .edit-input {
+          background: rgba(255,255,255,0.03);
+          border: 1px solid rgba(201,169,110,0.3);
+          border-radius: 6px; color: white;
+          padding: 8px 12px; font-family: 'Cinzel', serif;
+          font-size: 14px; letter-spacing: 1px;
+          transition: all 0.3s ease;
+        }
+        .edit-input:focus { outline: none; border-color: rgba(201,169,110,0.6); }
+        @media (max-width: 768px) {
+          .profil-kart { flex-direction: column !important; text-align: center; }
+          .stat-row { justify-content: center !important; }
+          .karakter-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 12px !important; }
+          .main-padding { padding: 24px 16px !important; }
+        }
+        @media (max-width: 480px) {
+          .karakter-grid { grid-template-columns: repeat(1, 1fr) !important; }
+        }
       `}</style>
 
-      {/* Navbar */}
       <nav style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'20px 48px', borderBottom:'1px solid rgba(201,169,110,0.2)', background:'rgba(10,10,15,0.9)', backdropFilter:'blur(10px)', position:'sticky', top:0, zIndex:100, boxShadow:'0 4px 30px rgba(0,0,0,0.5)'}}>
         <a href="/" style={{fontSize:'24px', fontFamily:'Cinzel, serif', fontWeight:'700', letterSpacing:'2px', textDecoration:'none', color:'white'}}>
           char<span style={{color:'#7F77DD'}}>faces</span>
@@ -85,63 +141,69 @@ export default function Profil() {
         </div>
       </nav>
 
-      <div style={{maxWidth:'1000px', margin:'0 auto', padding:'48px 32px'}}>
+      <div className="main-padding" style={{maxWidth:'1000px', margin:'0 auto', padding:'48px 32px'}}>
 
         {/* Profil kartı */}
-        <div style={{
-          background: 'linear-gradient(145deg, #12101a, #1a1228)',
-          border: '1px solid rgba(201,169,110,0.15)',
-          borderRadius: '16px', padding: '40px',
-          marginBottom: '48px',
-          boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
-          position: 'relative', overflow: 'hidden',
-          display: 'flex', alignItems: 'center', gap: '32px'
-        }}>
+        <div style={{background:'linear-gradient(145deg, #12101a, #1a1228)', border:'1px solid rgba(201,169,110,0.15)', borderRadius:'16px', padding:'40px', marginBottom:'48px', boxShadow:'0 20px 60px rgba(0,0,0,0.4)', position:'relative', overflow:'hidden'}}>
           <div style={{position:'absolute', left:0, top:0, bottom:0, width:'4px', background:'linear-gradient(to bottom, #7F77DD, #c9a96e)', opacity:0.6}}/>
 
-          {/* Avatar */}
-          <div style={{
-            width: '90px', height: '90px', borderRadius: '50%',
-            background: 'linear-gradient(135deg, #7F77DD, #c9a96e)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '36px', fontWeight: '700', flexShrink: 0,
-            fontFamily: 'Cinzel, serif',
-            boxShadow: '0 0 30px rgba(127,119,221,0.4)'
-          }}>
-            {kullanici?.email?.[0].toUpperCase()}
-          </div>
-
-          <div style={{flex: 1}}>
-            <div style={{fontSize:'24px', fontWeight:'700', fontFamily:'Cinzel, serif', letterSpacing:'1px', marginBottom:'4px'}}>
-              {kullanici?.email?.split('@')[0]}
-            </div>
-            <div style={{fontSize:'13px', color:'#555', fontFamily:'EB Garamond, serif', fontStyle:'italic', marginBottom:'24px'}}>
-              {kullanici?.email}
+          <div className="profil-kart" style={{display:'flex', alignItems:'center', gap:'32px'}}>
+            <div style={{width:'90px', height:'90px', borderRadius:'50%', background:'linear-gradient(135deg, #7F77DD, #c9a96e)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'36px', fontWeight:'700', flexShrink:0, fontFamily:'Cinzel, serif', boxShadow:'0 0 30px rgba(127,119,221,0.4)'}}>
+              {goruntulenenAd?.[0]?.toUpperCase()}
             </div>
 
-            {/* İstatistikler */}
-            <div style={{display:'flex', gap:'12px', flexWrap:'wrap'}}>
-              <div className="stat-box">
-                <div style={{fontSize:'28px', fontWeight:'700', fontFamily:'Cinzel, serif', color:'white'}}>{karakterler.length}</div>
-                <div style={{fontSize:'10px', color:'#c9a96e', letterSpacing:'2px', fontFamily:'Cinzel, serif', marginTop:'4px'}}>KARAKTER</div>
+            <div style={{flex:1}}>
+              {kullaniciAdiDuzenle ? (
+                <div style={{display:'flex', gap:'8px', alignItems:'center', marginBottom:'8px', flexWrap:'wrap'}}>
+                  <input
+                    className="edit-input"
+                    value={yeniKullaniciAdi}
+                    onChange={e => setYeniKullaniciAdi(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                    placeholder="kullanici_adi"
+                  />
+                  <button className="btn-primary" style={{padding:'8px 16px', fontSize:'11px'}} onClick={kullaniciAdiKaydet}>Kaydet</button>
+                  <button className="btn-secondary" style={{padding:'8px 16px', fontSize:'11px'}} onClick={() => setKullaniciAdiDuzenle(false)}>İptal</button>
+                </div>
+              ) : (
+                <div style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'4px', flexWrap:'wrap'}}>
+                  <div style={{fontSize:'24px', fontWeight:'700', fontFamily:'Cinzel, serif', letterSpacing:'1px'}}>
+                    {goruntulenenAd}
+                  </div>
+                  <button onClick={() => setKullaniciAdiDuzenle(true)} style={{background:'none', border:'none', color:'#555', cursor:'pointer', fontSize:'12px', transition:'color 0.2s'}}
+                    onMouseEnter={e => e.target.style.color='#c9a96e'}
+                    onMouseLeave={e => e.target.style.color='#555'}>
+                    ✎
+                  </button>
+                </div>
+              )}
+              {mesaj && <div style={{fontSize:'12px', color:'#c9a96e', fontFamily:'EB Garamond, serif', fontStyle:'italic', marginBottom:'8px'}}>{mesaj}</div>}
+              <div style={{fontSize:'13px', color:'#555', fontFamily:'EB Garamond, serif', fontStyle:'italic', marginBottom:'24px'}}>
+                {kullanici?.email}
               </div>
-              <div className="stat-box">
-                <div style={{fontSize:'28px', fontWeight:'700', fontFamily:'Cinzel, serif', color:'white'}}>{toplamBegeni}</div>
-                <div style={{fontSize:'10px', color:'#c9a96e', letterSpacing:'2px', fontFamily:'Cinzel, serif', marginTop:'4px'}}>BEĞENİ</div>
-              </div>
-              <div className="stat-box">
-                <div style={{fontSize:'28px', fontWeight:'700', fontFamily:'Cinzel, serif', color:'white'}}>{takipciSayisi}</div>
-                <div style={{fontSize:'10px', color:'#c9a96e', letterSpacing:'2px', fontFamily:'Cinzel, serif', marginTop:'4px'}}>TAKİPÇİ</div>
-              </div>
-              <div className="stat-box">
-                <div style={{fontSize:'28px', fontWeight:'700', fontFamily:'Cinzel, serif', color:'white'}}>{takipEdilenSayisi}</div>
-                <div style={{fontSize:'10px', color:'#c9a96e', letterSpacing:'2px', fontFamily:'Cinzel, serif', marginTop:'4px'}}>TAKİP</div>
+
+              <div className="stat-row" style={{display:'flex', gap:'12px', flexWrap:'wrap'}}>
+                <div className="stat-box">
+                  <div style={{fontSize:'28px', fontWeight:'700', fontFamily:'Cinzel, serif', color:'white'}}>{karakterler.length}</div>
+                  <div style={{fontSize:'10px', color:'#c9a96e', letterSpacing:'2px', fontFamily:'Cinzel, serif', marginTop:'4px'}}>KARAKTER</div>
+                </div>
+                <div className="stat-box">
+                  <div style={{fontSize:'28px', fontWeight:'700', fontFamily:'Cinzel, serif', color:'white'}}>{toplamBegeni}</div>
+                  <div style={{fontSize:'10px', color:'#c9a96e', letterSpacing:'2px', fontFamily:'Cinzel, serif', marginTop:'4px'}}>BEĞENİ</div>
+                </div>
+                <div className="stat-box">
+                  <div style={{fontSize:'28px', fontWeight:'700', fontFamily:'Cinzel, serif', color:'white'}}>{takipciSayisi}</div>
+                  <div style={{fontSize:'10px', color:'#c9a96e', letterSpacing:'2px', fontFamily:'Cinzel, serif', marginTop:'4px'}}>TAKİPÇİ</div>
+                </div>
+                <div className="stat-box">
+                  <div style={{fontSize:'28px', fontWeight:'700', fontFamily:'Cinzel, serif', color:'white'}}>{takipEdilenSayisi}</div>
+                  <div style={{fontSize:'10px', color:'#c9a96e', letterSpacing:'2px', fontFamily:'Cinzel, serif', marginTop:'4px'}}>TAKİP</div>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Karakterler başlık */}
+        {/* Karakterler */}
         <div style={{display:'flex', alignItems:'center', gap:'16px', marginBottom:'28px'}}>
           <div style={{width:'30px', height:'1px', background:'rgba(201,169,110,0.4)'}}/>
           <h2 style={{fontSize:'11px', fontWeight:'600', color:'#c9a96e', letterSpacing:'3px', fontFamily:'Cinzel, serif'}}>
@@ -158,19 +220,11 @@ export default function Profil() {
             <button className="btn-primary" onClick={() => router.push('/karakter-ekle')}>✦ İlk Karakterini Ekle</button>
           </div>
         ) : (
-          <div style={{display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:'24px'}}>
+          <div className="karakter-grid" style={{display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:'24px'}}>
             {karakterler.map((k, i) => (
               <div key={k.id} className="card-hover card-appear"
                 onClick={() => router.push(`/karakter/${k.id}`)}
-                style={{
-                  animationDelay: `${i * 0.08}s`,
-                  background: 'linear-gradient(145deg, #12101a, #1a1228)',
-                  border: '1px solid rgba(201,169,110,0.15)',
-                  borderRadius: '12px', overflow: 'hidden',
-                  cursor: 'pointer',
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-                  position: 'relative'
-                }}>
+                style={{animationDelay:`${i*0.08}s`, background:'linear-gradient(145deg, #12101a, #1a1228)', border:'1px solid rgba(201,169,110,0.15)', borderRadius:'12px', overflow:'hidden', cursor:'pointer', boxShadow:'0 8px 32px rgba(0,0,0,0.4)', position:'relative'}}>
                 <div style={{position:'absolute', left:0, top:0, bottom:0, width:'4px', background:'linear-gradient(to bottom, #7F77DD, #c9a96e)', opacity:0.6}}/>
                 <div style={{height:'200px', overflow:'hidden', position:'relative'}}>
                   {k.gorsel_url ? (

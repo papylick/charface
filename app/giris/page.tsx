@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 export default function Giris() {
   const [email, setEmail] = useState('')
   const [sifre, setSifre] = useState('')
+  const [kullaniciAdi, setKullaniciAdi] = useState('')
   const [mod, setMod] = useState('giris')
   const [mesaj, setMesaj] = useState('')
   const [yukleniyor, setYukleniyor] = useState(false)
@@ -13,10 +14,38 @@ export default function Giris() {
   async function handleSubmit() {
     setYukleniyor(true)
     setMesaj('')
+
     if (mod === 'kayit') {
-      const { error } = await supabase.auth.signUp({ email, password: sifre })
-      if (error) setMesaj(error.message)
-      else setMesaj('Emailini kontrol et, onay linki gönderdik!')
+      if (!kullaniciAdi.trim()) {
+        setMesaj('Kullanıcı adı zorunlu!')
+        setYukleniyor(false)
+        return
+      }
+
+      const { data: mevcutKullanici } = await supabase
+        .from('profiller')
+        .select('id')
+        .eq('kullanici_adi', kullaniciAdi.trim().toLowerCase())
+        .single()
+
+      if (mevcutKullanici) {
+        setMesaj('Bu kullanıcı adı alınmış, başka bir tane dene!')
+        setYukleniyor(false)
+        return
+      }
+
+      const { data, error } = await supabase.auth.signUp({ email, password: sifre })
+      if (error) { setMesaj(error.message); setYukleniyor(false); return }
+
+      if (data.user) {
+        await supabase.from('profiller').upsert({
+          id: data.user.id,
+          email: data.user.email,
+          kullanici_adi: kullaniciAdi.trim().toLowerCase()
+        })
+      }
+
+      setMesaj('Emailini kontrol et, onay linki gönderdik!')
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password: sifre })
       if (error) setMesaj(error.message)
@@ -55,18 +84,10 @@ export default function Giris() {
           border: none; cursor: pointer;
           font-family: 'Cinzel', serif;
           font-size: 12px; letter-spacing: 1px;
-          border-radius: 6px;
-          transition: all 0.3s ease;
+          border-radius: 6px; transition: all 0.3s ease;
         }
-        .tab-btn.aktif {
-          background: linear-gradient(135deg, #7F77DD, #9d77dd);
-          color: white;
-          box-shadow: 0 4px 15px rgba(127,119,221,0.3);
-        }
-        .tab-btn.pasif {
-          background: transparent;
-          color: #555;
-        }
+        .tab-btn.aktif { background: linear-gradient(135deg, #7F77DD, #9d77dd); color: white; box-shadow: 0 4px 15px rgba(127,119,221,0.3); }
+        .tab-btn.pasif { background: transparent; color: #555; }
         .tab-btn.pasif:hover { color: #888; }
         .submit-btn {
           width: 100%; padding: 16px;
@@ -77,19 +98,12 @@ export default function Giris() {
           transition: all 0.3s ease;
           box-shadow: 0 4px 20px rgba(127,119,221,0.3);
         }
-        .submit-btn:hover:not(:disabled) {
-          transform: translateY(-2px);
-          box-shadow: 0 8px 30px rgba(127,119,221,0.5);
-        }
+        .submit-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(127,119,221,0.5); }
         .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-        @keyframes fadeIn {
-          0% { opacity: 0; transform: translateY(20px); }
-          100% { opacity: 1; transform: translateY(0); }
-        }
+        @keyframes fadeIn { 0% { opacity: 0; transform: translateY(20px); } 100% { opacity: 1; transform: translateY(0); } }
         .fade-in { animation: fadeIn 0.6s ease forwards; }
       `}</style>
 
-      {/* Arka plan efektleri */}
       <div style={{position:'fixed', inset:0, pointerEvents:'none', overflow:'hidden'}}>
         <div style={{position:'absolute', top:'20%', left:'20%', width:'400px', height:'400px', background:'radial-gradient(circle, rgba(127,119,221,0.05), transparent)', borderRadius:'50%'}}/>
         <div style={{position:'absolute', bottom:'20%', right:'20%', width:'300px', height:'300px', background:'radial-gradient(circle, rgba(201,169,110,0.04), transparent)', borderRadius:'50%'}}/>
@@ -103,10 +117,8 @@ export default function Giris() {
         boxShadow: '0 30px 80px rgba(0,0,0,0.6)',
         position: 'relative', overflow: 'hidden'
       }}>
-        {/* Sol kitap sırt çizgisi */}
         <div style={{position:'absolute', left:0, top:0, bottom:0, width:'4px', background:'linear-gradient(to bottom, #7F77DD, #c9a96e)', opacity:0.6}}/>
 
-        {/* Logo */}
         <div style={{textAlign:'center', marginBottom:'32px'}}>
           <a href="/" style={{fontSize:'28px', fontFamily:'Cinzel, serif', fontWeight:'700', letterSpacing:'2px', textDecoration:'none', color:'white'}}>
             char<span style={{color:'#7F77DD'}}>faces</span>
@@ -118,18 +130,12 @@ export default function Giris() {
           </div>
         </div>
 
-        {/* Sekmeler */}
         <div style={{display:'flex', marginBottom:'28px', background:'rgba(0,0,0,0.3)', borderRadius:'8px', padding:'4px', border:'1px solid rgba(201,169,110,0.1)'}}>
-          <button onClick={() => { setMod('giris'); setMesaj('') }} className={`tab-btn ${mod==='giris' ? 'aktif' : 'pasif'}`}>
-            GİRİŞ YAP
-          </button>
-          <button onClick={() => { setMod('kayit'); setMesaj('') }} className={`tab-btn ${mod==='kayit' ? 'aktif' : 'pasif'}`}>
-            ÜYE OL
-          </button>
+          <button onClick={() => { setMod('giris'); setMesaj('') }} className={`tab-btn ${mod==='giris' ? 'aktif' : 'pasif'}`}>GİRİŞ YAP</button>
+          <button onClick={() => { setMod('kayit'); setMesaj('') }} className={`tab-btn ${mod==='kayit' ? 'aktif' : 'pasif'}`}>ÜYE OL</button>
         </div>
 
-        {/* Başlık */}
-        <div style={{marginBottom:'24px'}}>
+        <div style={{marginBottom:'16px'}}>
           <h2 style={{fontSize:'18px', fontFamily:'Cinzel, serif', fontWeight:'600', letterSpacing:'1px', marginBottom:'4px'}}>
             {mod === 'giris' ? 'Hoş Geldin' : 'Aramıza Katıl'}
           </h2>
@@ -138,33 +144,34 @@ export default function Giris() {
           </p>
         </div>
 
-        {/* Form */}
+        {mod === 'kayit' && (
+          <div style={{marginBottom:'16px'}}>
+            <label style={{fontSize:'10px', color:'#c9a96e', display:'block', marginBottom:'8px', fontFamily:'Cinzel, serif', letterSpacing:'2px'}}>KULLANICI ADI</label>
+            <input
+              type="text"
+              placeholder="örn. kitapsever42"
+              value={kullaniciAdi}
+              onChange={e => setKullaniciAdi(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+              autoCapitalize="none"
+              autoCorrect="off"
+              autoComplete="off"
+              spellCheck={false}
+              className="input-field"
+            />
+            <div style={{fontSize:'11px', color:'#444', marginTop:'6px', fontFamily:'EB Garamond, serif', fontStyle:'italic'}}>
+              Sadece harf, rakam ve _ kullanabilirsin
+            </div>
+          </div>
+        )}
+
         <div style={{marginBottom:'16px'}}>
-          <label style={{fontSize:'10px', color:'#c9a96e', display:'block', marginBottom:'8px', fontFamily:'Cinzel, serif', letterSpacing:'2px'}}>
-            EMAIL
-          </label>
-          <input
-            type="email"
-            placeholder="ornek@email.com"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-            className="input-field"
-          />
+          <label style={{fontSize:'10px', color:'#c9a96e', display:'block', marginBottom:'8px', fontFamily:'Cinzel, serif', letterSpacing:'2px'}}>EMAIL</label>
+          <input type="email" placeholder="ornek@email.com" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSubmit()} className="input-field"/>
         </div>
 
         <div style={{marginBottom:'28px'}}>
-          <label style={{fontSize:'10px', color:'#c9a96e', display:'block', marginBottom:'8px', fontFamily:'Cinzel, serif', letterSpacing:'2px'}}>
-            ŞİFRE
-          </label>
-          <input
-            type="password"
-            placeholder="••••••••"
-            value={sifre}
-            onChange={e => setSifre(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-            className="input-field"
-          />
+          <label style={{fontSize:'10px', color:'#c9a96e', display:'block', marginBottom:'8px', fontFamily:'Cinzel, serif', letterSpacing:'2px'}}>ŞİFRE</label>
+          <input type="password" placeholder="••••••••" value={sifre} onChange={e => setSifre(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSubmit()} className="input-field"/>
         </div>
 
         {mesaj && (
@@ -174,8 +181,7 @@ export default function Giris() {
             border: `1px solid ${mesaj.includes('kontrol') ? 'rgba(201,169,110,0.3)' : 'rgba(255,100,100,0.3)'}`,
             borderRadius:'8px',
             color: mesaj.includes('kontrol') ? '#c9a96e' : '#ff8080',
-            fontSize:'13px', fontFamily:'EB Garamond, serif', fontStyle:'italic',
-            textAlign:'center'
+            fontSize:'13px', fontFamily:'EB Garamond, serif', fontStyle:'italic', textAlign:'center'
           }}>
             {mesaj}
           </div>
