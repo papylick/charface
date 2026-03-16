@@ -14,6 +14,8 @@ export default function Home() {
   const [karakterler, setKarakterler] = useState([])
   const [profiller, setProfiller] = useState({})
   const [arama, setArama] = useState('')
+  const [aramaOnerileri, setAramaOnerileri] = useState([])
+  const [aramaMenuAcik, setAramaMenuAcik] = useState(false)
   const [begeniler, setBegeniler] = useState({})
   const [kitapAcik, setKitapAcik] = useState(false)
   const [icerikGoster, setIcerikGoster] = useState(false)
@@ -23,11 +25,56 @@ export default function Home() {
   const [okunmamisMesaj, setOkunmamisMesaj] = useState(0)
   const gozlemciRef = useRef(null)
   const sonElemanRef = useRef(null)
+  const aramaRef = useRef(null)
+  const aramaTimer = useRef(null)
 
   const navigate = useCallback((url: string) => {
     setIcerikGoster(false)
     setTimeout(() => router.push(url), 600)
   }, [router])
+
+  useEffect(() => {
+    function disariTikla(e) {
+      if (aramaRef.current && !aramaRef.current.contains(e.target)) {
+        setAramaMenuAcik(false)
+      }
+    }
+    document.addEventListener('mousedown', disariTikla)
+    return () => document.removeEventListener('mousedown', disariTikla)
+  }, [])
+
+  async function aramaDegisti(deger) {
+    setArama(deger)
+    if (aramaTimer.current) clearTimeout(aramaTimer.current)
+    if (deger.length < 2) { setAramaOnerileri([]); setAramaMenuAcik(false); return }
+
+    aramaTimer.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(deger)}&limit=5`)
+        const data = await res.json()
+        if (data.docs) {
+          const kitaplar = data.docs
+            .filter(item => item.title)
+            .map(item => ({
+              baslik: item.title,
+              yazar: item.author_name?.[0] || '',
+              kapak: item.cover_i ? `https://covers.openlibrary.org/b/id/${item.cover_i}-S.jpg` : null
+            }))
+          setAramaOnerileri(kitaplar)
+          setAramaMenuAcik(true)
+        }
+      } catch (e) {
+        setAramaOnerileri([])
+      }
+    }, 400)
+  }
+
+  function kitapSec(baslik) {
+    setArama(baslik)
+    setAramaMenuAcik(false)
+    setSayfa(0)
+    karakterleriYukle(0, baslik)
+  }
 
   async function karakterleriYukle(sayfaNo: number, aramaMetni: string = '') {
     if (sayfaNo === 0) setKarakterler([])
@@ -85,7 +132,6 @@ export default function Home() {
           .single()
         setProfilAdi(profil?.kullanici_adi || data.user.email?.split('@')[0])
 
-        // Okunmamış mesaj sayısı
         const { count: okunmamis } = await supabase
           .from('mesajlar')
           .select('*', { count: 'exact', head: true })
@@ -216,6 +262,9 @@ export default function Home() {
         ::-webkit-scrollbar-thumb { background:#2a1a3e; border-radius:3px; }
         @keyframes pulse { 0%,100%{opacity:0.5} 50%{opacity:1} }
         @keyframes spin { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
+        .kitap-oneri { display:flex; align-items:center; gap:12px; padding:10px 14px; cursor:pointer; transition:background 0.2s; border-bottom:1px solid rgba(255,255,255,0.04); }
+        .kitap-oneri:hover { background:rgba(201,169,110,0.08); }
+        .kitap-oneri:last-child { border-bottom:none; }
       `}</style>
 
       {!icerikGoster && (
@@ -282,7 +331,6 @@ export default function Home() {
               {kullanici ? (
                 <>
                   <BildirimZili kullaniciId={kullanici.id} />
-                  {/* 💬 MESAJ İKONU */}
                   <button onClick={() => navigate('/mesajlar')} style={{background:'transparent', border:'1px solid rgba(201,169,110,0.4)', color:'#c9a96e', width:'42px', height:'42px', borderRadius:'8px', cursor:'pointer', fontSize:'18px', display:'flex', alignItems:'center', justifyContent:'center', position:'relative', transition:'all 0.3s ease'}}
                     onMouseEnter={e => e.currentTarget.style.background='rgba(201,169,110,0.1)'}
                     onMouseLeave={e => e.currentTarget.style.background='transparent'}>
@@ -321,10 +369,34 @@ export default function Home() {
             <span style={{color:'#c9a96e', fontSize:'14px'}}>✦</span>
             <div style={{width:'60px', height:'1px', background:'linear-gradient(to left, transparent, #c9a96e)'}}/>
           </div>
-          <div className="search-input-wrapper" style={{position:'relative', maxWidth:'520px', margin:'0 auto'}}>
-            <input type="text" placeholder="Karakter veya kitap ara..." value={arama} onChange={e => setArama(e.target.value)} className="search-input"
+
+          {/* ARAMA KUTUSU — kitap önerileri ile */}
+          <div ref={aramaRef} className="search-input-wrapper" style={{position:'relative', maxWidth:'520px', margin:'0 auto'}}>
+            <input type="text" placeholder="Karakter veya kitap ara..." value={arama}
+              onChange={e => aramaDegisti(e.target.value)}
+              className="search-input"
+              autoComplete="off"
               style={{width:'100%', padding:'16px 24px 16px 50px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(201,169,110,0.3)', borderRadius:'8px', color:'white', fontSize:'15px', boxSizing:'border-box', fontFamily:'EB Garamond, serif', transition:'all 0.3s ease'}}/>
             <span style={{position:'absolute', left:'18px', top:'50%', transform:'translateY(-50%)', color:'#c9a96e', fontSize:'16px'}}>🔍</span>
+
+            {aramaMenuAcik && aramaOnerileri.length > 0 && (
+              <div style={{position:'absolute', top:'100%', left:0, right:0, background:'linear-gradient(145deg, #12101a, #1a1228)', border:'1px solid rgba(201,169,110,0.2)', borderRadius:'10px', marginTop:'6px', zIndex:9999, boxShadow:'0 10px 40px rgba(0,0,0,0.6)', overflow:'hidden', textAlign:'left'}}>
+                <div style={{padding:'8px 14px', fontSize:'10px', color:'#666', fontFamily:'Cinzel, serif', letterSpacing:'2px', borderBottom:'1px solid rgba(255,255,255,0.04)'}}>KİTAP ÖNERİLERİ</div>
+                {aramaOnerileri.map((k, i) => (
+                  <div key={i} className="kitap-oneri" onClick={() => kitapSec(k.baslik)}>
+                    {k.kapak ? (
+                      <img src={k.kapak} style={{width:'32px', height:'44px', objectFit:'cover', borderRadius:'3px', flexShrink:0}}/>
+                    ) : (
+                      <div style={{width:'32px', height:'44px', background:'rgba(127,119,221,0.2)', borderRadius:'3px', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'16px', flexShrink:0}}>📖</div>
+                    )}
+                    <div>
+                      <div style={{fontSize:'13px', color:'white', fontFamily:'EB Garamond, serif', fontWeight:'600'}}>{k.baslik}</div>
+                      {k.yazar && <div style={{fontSize:'11px', color:'#888', fontFamily:'EB Garamond, serif', fontStyle:'italic'}}>{k.yazar}</div>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -394,4 +466,3 @@ export default function Home() {
     </main>
   )
 }
-``
