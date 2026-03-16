@@ -105,7 +105,9 @@ export default function KarakterDetay() {
           <button onClick={toggleBegeni} style={{background:'transparent', border:'1px solid #444', color:'white', padding:'10px 20px', borderRadius:'8px', cursor:'pointer', fontSize:'16px', display:'flex', alignItems:'center', gap:'8px'}}>
             {begendi ? '❤️' : '🤍'} {begeniSayisi} beğeni
           </button>
-          <span style={{fontSize:'13px', color:'#555'}}>Ekleyen: {karakter.kullanici_email?.split('@')[0]}</span>
+          <Link href={`/profil/${karakter.kullanici_id}`} style={{fontSize:'13px', color:'#7F77DD', textDecoration:'none'}}>
+            Ekleyen: {karakter.kullanici_email?.split('@')[0]}
+          </Link>
         </div>
 
         <div>
@@ -137,7 +139,7 @@ export default function KarakterDetay() {
             yorumlar.map(y => (
               <div key={y.id} style={{background:'#1a1a1a', border:'1px solid #333', borderRadius:'10px', padding:'14px 16px', marginBottom:'10px'}}>
                 <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'6px'}}>
-                  <span style={{fontSize:'13px', fontWeight:'600', color:'#7F77DD'}}>{y.kullanici_email?.split('@')[0]}</span>
+                  <Link href={`/profil/${y.kullanici_id}`} style={{fontSize:'13px', fontWeight:'600', color:'#7F77DD', textDecoration:'none'}}>{y.kullanici_email?.split('@')[0]}</Link>
                   <span style={{fontSize:'11px', color:'#555'}}>{new Date(y.created_at).toLocaleDateString('tr-TR')}</span>
                 </div>
                 <div style={{fontSize:'14px', color:'#ccc'}}>{y.yorum}</div>

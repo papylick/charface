@@ -8,17 +8,33 @@ export default function Profil() {
   const [kullanici, setKullanici] = useState(null)
   const [karakterler, setKarakterler] = useState([])
   const [yukleniyor, setYukleniyor] = useState(true)
+  const [takipciSayisi, setTakipciSayisi] = useState(0)
+  const [takipEdilenSayisi, setTakipEdilenSayisi] = useState(0)
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
       if (!data.user) { window.location.href = '/giris'; return }
       setKullanici(data.user)
+
       const { data: chars } = await supabase
         .from('karakterler')
         .select('*, begeniler(count)')
         .eq('kullanici_id', data.user.id)
         .order('created_at', { ascending: false })
       if (chars) setKarakterler(chars)
+
+      const { count: takipci } = await supabase
+        .from('follows')
+        .select('*', { count: 'exact', head: true })
+        .eq('following_id', data.user.id)
+      setTakipciSayisi(takipci || 0)
+
+      const { count: takipEdilen } = await supabase
+        .from('follows')
+        .select('*', { count: 'exact', head: true })
+        .eq('follower_id', data.user.id)
+      setTakipEdilenSayisi(takipEdilen || 0)
+
       setYukleniyor(false)
     })
   }, [])
@@ -65,6 +81,14 @@ export default function Profil() {
                 <div style={{fontSize:'24px', fontWeight:'700'}}>{toplamBegeni}</div>
                 <div style={{fontSize:'12px', color:'#888'}}>beğeni</div>
               </div>
+              <div style={{textAlign:'center'}}>
+                <div style={{fontSize:'24px', fontWeight:'700'}}>{takipciSayisi}</div>
+                <div style={{fontSize:'12px', color:'#888'}}>takipçi</div>
+              </div>
+              <div style={{textAlign:'center'}}>
+                <div style={{fontSize:'24px', fontWeight:'700'}}>{takipEdilenSayisi}</div>
+                <div style={{fontSize:'12px', color:'#888'}}>takip</div>
+              </div>
             </div>
           </div>
         </div>
@@ -82,20 +106,22 @@ export default function Profil() {
         ) : (
           <div style={{display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:'16px'}}>
             {karakterler.map((k, i) => (
-              <div key={k.id} style={{background: renkler[i % renkler.length], border:'1px solid #333', borderRadius:'12px', overflow:'hidden'}}>
-                <div style={{height:'200px', overflow:'hidden'}}>
-                  {k.gorsel_url ? (
-                    <img src={k.gorsel_url} style={{width:'100%', height:'100%', objectFit:'cover'}}/>
-                  ) : (
-                    <div style={{width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'48px', background:'rgba(127,119,221,0.1)'}}>📖</div>
-                  )}
+              <Link key={k.id} href={`/karakter/${k.id}`} style={{textDecoration:'none', color:'white'}}>
+                <div style={{background: renkler[i % renkler.length], border:'1px solid #333', borderRadius:'12px', overflow:'hidden'}}>
+                  <div style={{height:'200px', overflow:'hidden'}}>
+                    {k.gorsel_url ? (
+                      <img src={k.gorsel_url} style={{width:'100%', height:'100%', objectFit:'cover'}}/>
+                    ) : (
+                      <div style={{width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'48px', background:'rgba(127,119,221,0.1)'}}>📖</div>
+                    )}
+                  </div>
+                  <div style={{padding:'12px 16px'}}>
+                    <div style={{fontWeight:'600', fontSize:'15px'}}>{k.karakter_adi}</div>
+                    <div style={{fontSize:'12px', color:'#888', marginTop:'4px'}}>{k.kitap_adi}</div>
+                    <div style={{marginTop:'8px', fontSize:'13px', color:'#D4537E'}}>❤️ {k.begeniler?.[0]?.count || 0} beğeni</div>
+                  </div>
                 </div>
-                <div style={{padding:'12px 16px'}}>
-                  <div style={{fontWeight:'600', fontSize:'15px'}}>{k.karakter_adi}</div>
-                  <div style={{fontSize:'12px', color:'#888', marginTop:'4px'}}>{k.kitap_adi}</div>
-                  <div style={{marginTop:'8px', fontSize:'13px', color:'#D4537E'}}>❤️ {k.begeniler?.[0]?.count || 0} beğeni</div>
-                </div>
-              </div>
+              </Link>
             ))}
           </div>
         )}
