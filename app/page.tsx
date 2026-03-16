@@ -9,6 +9,8 @@ export default function Home() {
   const [karakterler, setKarakterler] = useState([])
   const [arama, setArama] = useState('')
   const [begeniler, setBegeniler] = useState({})
+  const [kitapAcik, setKitapAcik] = useState(false)
+  const [icerikGoster, setIcerikGoster] = useState(false)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setKullanici(data.user))
@@ -48,85 +50,353 @@ export default function Home() {
     }
   }
 
+  function kitabiAc() {
+    setKitapAcik(true)
+    setTimeout(() => setIcerikGoster(true), 1200)
+  }
+
   const filtrelenmis = karakterler.filter(k =>
     k.karakter_adi.toLowerCase().includes(arama.toLowerCase()) ||
     k.kitap_adi.toLowerCase().includes(arama.toLowerCase())
   )
 
-  const renkler = ['#1a1a3e','#2d0a1a','#1a1a1a','#1a0000','#1a2d0a','#1a0a2d']
-
   return (
-    <main style={{minHeight:'100vh', background:'#0f0f0f', color:'white', fontFamily:'sans-serif'}}>
-      <nav style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 32px', borderBottom:'1px solid #222'}}>
-        <span style={{fontSize:'22px', fontWeight:'600'}}>char<span style={{color:'#7F77DD'}}>faces</span></span>
-        <div style={{display:'flex', gap:'12px', alignItems:'center'}}>
-          {kullanici ? (
-            <>
-              <Link href="/karakter-ekle"><button style={{background:'#7F77DD', border:'none', color:'white', padding:'8px 16px', borderRadius:'8px', cursor:'pointer'}}>+ Karakter ekle</button></Link>
-              <Link href="/profil"><button style={{background:'transparent', border:'1px solid #7F77DD', color:'#7F77DD', padding:'8px 16px', borderRadius:'8px', cursor:'pointer'}}>{kullanici.email?.split('@')[0]}</button></Link>
-              <button onClick={cikisYap} style={{background:'transparent', border:'1px solid #444', color:'white', padding:'8px 16px', borderRadius:'8px', cursor:'pointer'}}>Çıkış yap</button>
-            </>
-          ) : (
-            <>
-              <Link href="/giris"><button style={{background:'transparent', border:'1px solid #444', color:'white', padding:'8px 16px', borderRadius:'8px', cursor:'pointer'}}>Giriş yap</button></Link>
-              <Link href="/giris"><button style={{background:'#7F77DD', border:'none', color:'white', padding:'8px 16px', borderRadius:'8px', cursor:'pointer'}}>Üye ol</button></Link>
-            </>
-          )}
-        </div>
-      </nav>
+    <main style={{
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #0a0a0f 0%, #120a1a 50%, #0a0f0a 100%)',
+      color: 'white',
+      fontFamily: '"Georgia", serif',
+      overflow: icerikGoster ? 'auto' : 'hidden'
+    }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap');
 
-      <div style={{textAlign:'center', padding:'60px 32px 20px'}}>
-        <h1 style={{fontSize:'48px', fontWeight:'700', marginBottom:'16px', lineHeight:'1.2'}}>
-          Kitap karakterlerini<br/>
-          <span style={{color:'#7F77DD'}}>görselleştir</span>
-        </h1>
-        <p style={{fontSize:'18px', color:'#888', maxWidth:'500px', margin:'0 auto 32px'}}>
-          Hayal ettiğin karakterleri AI ile üret, topluluğunla paylaş.
-        </p>
-        <input
-          type="text"
-          placeholder="Karakter veya kitap ara..."
-          value={arama}
-          onChange={e => setArama(e.target.value)}
-          style={{width:'100%', maxWidth:'500px', padding:'14px 20px', background:'#1a1a1a', border:'1px solid #444', borderRadius:'12px', color:'white', fontSize:'15px', boxSizing:'border-box', marginBottom:'16px'}}
-        />
-      </div>
+        .kitap-kaplagi {
+          position: fixed;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+          background: linear-gradient(135deg, #0a0a0f 0%, #120a1a 50%, #0a0f0a 100%);
+          transition: opacity 0.6s ease 0.9s;
+        }
+        .kitap-kaplagi.aciliyor {
+          opacity: 0;
+          pointer-events: none;
+        }
+        .kitap-wrapper {
+          perspective: 2000px;
+          cursor: pointer;
+        }
+        .kitap {
+          width: 600px;
+          height: 700px;
+          position: relative;
+          transform-style: preserve-3d;
+          transition: transform 0.3s ease;
+        }
+        .kitap:hover {
+          transform: rotateY(-5deg) rotateX(2deg);
+        }
+        .kitap.acik {
+          transform: rotateY(-180deg) scale(0.8) !important;
+          transition: transform 1s cubic-bezier(0.645, 0.045, 0.355, 1.000) !important;
+        }
+        .kitap-on {
+          position: absolute;
+          inset: 0;
+          border-radius: 4px 16px 16px 4px;
+          border: 1px solid rgba(201,169,110,0.4);
+          box-shadow: -12px 12px 60px rgba(0,0,0,0.9), 0 0 80px rgba(127,119,221,0.1);
+          transform-origin: left center;
+          backface-visibility: hidden;
+          overflow: hidden;
+          background: #0a0a12;
+        }
+        .kitap-sirt {
+          position: absolute;
+          left: -16px;
+          top: 0; bottom: 0;
+          width: 16px;
+          background: linear-gradient(to right, #050310, #1a0a2e);
+          border-radius: 4px 0 0 4px;
+          border-left: 1px solid rgba(201,169,110,0.2);
+          box-shadow: -4px 0 10px rgba(0,0,0,0.5);
+        }
+        .kitap-arka {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(135deg, #120a1e, #1a0a2e);
+          border-radius: 4px 16px 16px 4px;
+          border: 1px solid rgba(201,169,110,0.2);
+        }
+        .kapak-overlay {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(
+            to bottom,
+            rgba(0,0,0,0.7) 0%,
+            rgba(0,0,0,0.2) 30%,
+            rgba(0,0,0,0.2) 60%,
+            rgba(0,0,0,0.85) 100%
+          );
+          z-index: 2;
+        }
+        .kapak-cerceve {
+          position: absolute;
+          inset: 12px;
+          border: 1px solid rgba(201,169,110,0.3);
+          border-radius: 2px 12px 12px 2px;
+          z-index: 3;
+          pointer-events: none;
+        }
+        .kapak-icerik {
+          position: absolute;
+          inset: 0;
+          z-index: 4;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          padding: 28px 24px;
+        }
+        .grid-preview {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 3px;
+          position: absolute;
+          inset: 0;
+          z-index: 1;
+        }
+        .grid-preview img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          filter: saturate(0.7) brightness(0.6);
+        }
+        .card-hover {
+          transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.4s ease;
+        }
+        .card-hover:hover {
+          transform: translateY(-8px);
+          box-shadow: -4px 16px 40px rgba(0,0,0,0.6), 0 0 20px rgba(127,119,221,0.2);
+        }
+        .card-appear {
+          animation: cardAppear 0.6s ease forwards;
+          opacity: 0;
+        }
+        @keyframes cardAppear {
+          0% { opacity: 0; transform: translateY(20px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+        .icerik {
+          opacity: 0;
+          transform: translateY(20px);
+          transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+        .icerik.gorunen {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        .search-input:focus { outline: none; border-color: #c9a96e !important; box-shadow: 0 0 20px rgba(201,169,110,0.15); }
+        .btn-primary {
+          background: linear-gradient(135deg, #7F77DD, #9d77dd);
+          border: none; color: white; padding: 10px 20px; border-radius: 6px;
+          cursor: pointer; font-family: 'Cinzel', serif; font-size: 13px;
+          letter-spacing: 0.5px; transition: all 0.3s ease;
+          box-shadow: 0 4px 15px rgba(127,119,221,0.3);
+        }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(127,119,221,0.5); }
+        .btn-secondary {
+          background: transparent; border: 1px solid #c9a96e; color: #c9a96e;
+          padding: 10px 20px; border-radius: 6px; cursor: pointer;
+          font-family: 'Cinzel', serif; font-size: 13px; letter-spacing: 0.5px;
+          transition: all 0.3s ease;
+        }
+        .btn-secondary:hover { background: rgba(201,169,110,0.1); transform: translateY(-2px); }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0a0a0f; }
+        ::-webkit-scrollbar-thumb { background: #2a1a3e; border-radius: 3px; }
+      `}</style>
 
-      <div style={{padding:'0 32px 40px', maxWidth:'900px', margin:'0 auto'}}>
-        <h2 style={{fontSize:'18px', fontWeight:'600', marginBottom:'20px', color:'#888'}}>
-          {filtrelenmis.length > 0 ? `${filtrelenmis.length} karakter` : 'Sonuç bulunamadı'}
-        </h2>
-        <div style={{display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:'16px'}}>
-          {filtrelenmis.map((k, i) => (
-            <Link key={k.id} href={`/karakter/${k.id}`} style={{textDecoration:'none', color:'white'}}>
-              <div style={{background: renkler[i % renkler.length], border:'1px solid #333', borderRadius:'12px', overflow:'hidden', cursor:'pointer', transition:'border-color 0.2s'}}
-                onMouseEnter={e => e.currentTarget.style.borderColor='#7F77DD'}
-                onMouseLeave={e => e.currentTarget.style.borderColor='#333'}>
-                <div style={{height:'200px', overflow:'hidden'}}>
-                  {k.gorsel_url ? (
-                    <img src={k.gorsel_url} style={{width:'100%', height:'100%', objectFit:'cover'}}/>
+      {/* KİTAP KAPAĞI */}
+      {!icerikGoster && (
+        <div className={`kitap-kaplagi ${kitapAcik ? 'aciliyor' : ''}`}>
+          <div style={{position:'absolute', inset:0, pointerEvents:'none', overflow:'hidden'}}>
+            <div style={{position:'absolute', top:'10%', left:'10%', width:'400px', height:'400px', background:'radial-gradient(circle, rgba(127,119,221,0.06), transparent)', borderRadius:'50%'}}/>
+            <div style={{position:'absolute', bottom:'10%', right:'10%', width:'300px', height:'300px', background:'radial-gradient(circle, rgba(201,169,110,0.05), transparent)', borderRadius:'50%'}}/>
+          </div>
+
+          <div style={{display:'flex', flexDirection:'column', alignItems:'center', gap:'32px'}}>
+            <div className="kitap-wrapper" onClick={kitabiAc}>
+              <div className={`kitap ${kitapAcik ? 'acik' : ''}`}>
+                <div className="kitap-arka"/>
+                <div className="kitap-sirt"/>
+                <div className="kitap-on">
+                  {/* Arka plan grid görseller */}
+                  {karakterler.length > 0 ? (
+                    <div className="grid-preview">
+                      {Array.from({length: 9}).map((_, i) => {
+                        const k = karakterler[i % karakterler.length]
+                        return k?.gorsel_url ? (
+                          <img key={i} src={k.gorsel_url} alt=""/>
+                        ) : (
+                          <div key={i} style={{background:'#1a1228', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'24px'}}>📖</div>
+                        )
+                      })}
+                    </div>
                   ) : (
-                    <div style={{width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'48px', background:'rgba(127,119,221,0.1)'}}>📖</div>
+                    <div style={{position:'absolute', inset:0, background:'linear-gradient(135deg, #1a0a2e, #0a0a12)'}}/>
                   )}
-                </div>
-                <div style={{padding:'12px 16px'}}>
-                  <div style={{fontWeight:'600', fontSize:'15px'}}>{k.karakter_adi}</div>
-                  <div style={{fontSize:'12px', color:'#888', marginTop:'4px'}}>{k.kitap_adi}</div>
-                  {k.aciklama && <div style={{fontSize:'12px', color:'#666', marginTop:'6px', lineHeight:'1.4'}}>{k.aciklama.slice(0, 80)}</div>}
-                  <div style={{marginTop:'10px', display:'flex', alignItems:'center', justifyContent:'space-between'}}>
-                    <button
-                      onClick={(e) => toggleBegeni(e, k.id)}
-                      style={{background:'transparent', border:'none', cursor:'pointer', fontSize:'18px', display:'flex', alignItems:'center', gap:'4px', color: begeniler[k.id] ? '#D4537E' : '#666', padding:'0'}}
-                    >
-                      {begeniler[k.id] ? '❤️' : '🤍'} <span style={{fontSize:'13px'}}>{k.begeniler?.[0]?.count || 0}</span>
-                    </button>
-                    <span style={{fontSize:'11px', color:'#555'}}>{k.kullanici_email?.split('@')[0]}</span>
+
+                  <div className="kapak-overlay"/>
+                  <div className="kapak-cerceve"/>
+
+                  <div className="kapak-icerik">
+                    {/* Üst */}
+                    <div style={{textAlign:'center'}}>
+                      <div style={{fontSize:'10px', letterSpacing:'5px', color:'#c9a96e', fontFamily:'Cinzel, serif', marginBottom:'12px', opacity:0.9}}>
+                        ✦ &nbsp; KİTAP ARŞİVİ &nbsp; ✦
+                      </div>
+                      <div style={{width:'60%', height:'1px', background:'linear-gradient(to right, transparent, #c9a96e, transparent)', margin:'0 auto'}}/>
+                    </div>
+
+                    {/* Orta */}
+                    <div style={{textAlign:'center'}}>
+                      <div style={{fontSize:'48px', fontFamily:'Cinzel, serif', fontWeight:'700', color:'white', letterSpacing:'4px', textShadow:'0 0 40px rgba(127,119,221,0.8), 0 2px 4px rgba(0,0,0,0.9)', marginBottom:'8px'}}>
+                        char<span style={{color:'#7F77DD'}}>faces</span>
+                      </div>
+                      <div style={{fontSize:'12px', letterSpacing:'3px', color:'#c9a96e', fontFamily:'EB Garamond, serif', fontStyle:'italic', opacity:0.8}}>
+                        Karakterleri Görselleştir
+                      </div>
+                    </div>
+
+                    {/* Alt */}
+                    <div style={{textAlign:'center'}}>
+                      <div style={{width:'60%', height:'1px', background:'linear-gradient(to right, transparent, #c9a96e, transparent)', margin:'0 auto 12px'}}/>
+                      <div style={{fontSize:'11px', letterSpacing:'3px', color:'#888', fontFamily:'Cinzel, serif'}}>
+                        TIKLA VE KEŞFET
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-            </Link>
-          ))}
+            </div>
+
+            <div style={{textAlign:'center', color:'#555', fontSize:'13px', fontFamily:'EB Garamond, serif', fontStyle:'italic', animation:'pulse 2s ease infinite'}}>
+              <style>{`@keyframes pulse { 0%,100%{opacity:0.5} 50%{opacity:1} }`}</style>
+              ↑ Kitabı aç
+            </div>
+          </div>
         </div>
+      )}
+
+      {/* ANA İÇERİK */}
+      <div className={`icerik ${icerikGoster ? 'gorunen' : ''}`}>
+        <nav style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'20px 48px', borderBottom:'1px solid rgba(201,169,110,0.2)', background:'rgba(10,10,15,0.9)', backdropFilter:'blur(10px)', position:'sticky', top:0, zIndex:100, boxShadow:'0 4px 30px rgba(0,0,0,0.5)'}}>
+          <span style={{fontSize:'24px', fontFamily:'Cinzel, serif', fontWeight:'700', letterSpacing:'2px'}}>
+            char<span style={{color:'#7F77DD'}}>faces</span>
+          </span>
+          <div style={{display:'flex', gap:'16px', alignItems:'center'}}>
+            {kullanici ? (
+              <>
+                <Link href="/karakter-ekle" style={{textDecoration:'none'}}>
+                  <button className="btn-primary">✦ Karakter Ekle</button>
+                </Link>
+                <Link href="/profil" style={{textDecoration:'none'}}>
+                  <button className="btn-secondary">{kullanici.email?.split('@')[0]}</button>
+                </Link>
+                <button onClick={cikisYap} style={{background:'transparent', border:'none', color:'#666', cursor:'pointer', fontSize:'13px', fontFamily:'Cinzel, serif', letterSpacing:'0.5px'}}
+                  onMouseEnter={e => e.target.style.color='#999'}
+                  onMouseLeave={e => e.target.style.color='#666'}>
+                  Çıkış
+                </button>
+              </>
+            ) : (
+              <>
+                <Link href="/giris" style={{textDecoration:'none'}}>
+                  <button className="btn-secondary">Giriş Yap</button>
+                </Link>
+                <Link href="/giris" style={{textDecoration:'none'}}>
+                  <button className="btn-primary">Üye Ol</button>
+                </Link>
+              </>
+            )}
+          </div>
+        </nav>
+
+        <div style={{textAlign:'center', padding:'60px 32px 32px', position:'relative', zIndex:1}}>
+          <div style={{marginBottom:'16px', fontSize:'11px', letterSpacing:'4px', color:'#c9a96e', fontFamily:'Cinzel, serif', opacity:0.8}}>
+            ✦ &nbsp; HAYAL ET &nbsp; ✦ &nbsp; ÜRET &nbsp; ✦ &nbsp; PAYLAŞ &nbsp; ✦
+          </div>
+          <h1 style={{fontSize:'52px', fontWeight:'700', marginBottom:'16px', lineHeight:'1.2', fontFamily:'Cinzel, serif', letterSpacing:'2px', textShadow:'0 0 60px rgba(127,119,221,0.3)'}}>
+            Kitap Karakterlerini<br/>
+            <span style={{background:'linear-gradient(135deg, #7F77DD, #c9a96e)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text'}}>
+              Görselleştir
+            </span>
+          </h1>
+          <div style={{display:'flex', alignItems:'center', justifyContent:'center', gap:'16px', marginBottom:'28px'}}>
+            <div style={{width:'60px', height:'1px', background:'linear-gradient(to right, transparent, #c9a96e)'}}/>
+            <span style={{color:'#c9a96e', fontSize:'14px'}}>✦</span>
+            <div style={{width:'60px', height:'1px', background:'linear-gradient(to left, transparent, #c9a96e)'}}/>
+          </div>
+          <div style={{position:'relative', maxWidth:'520px', margin:'0 auto'}}>
+            <input type="text" placeholder="Karakter veya kitap ara..." value={arama} onChange={e => setArama(e.target.value)} className="search-input"
+              style={{width:'100%', padding:'16px 24px 16px 50px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(201,169,110,0.3)', borderRadius:'8px', color:'white', fontSize:'15px', boxSizing:'border-box', fontFamily:'EB Garamond, serif', transition:'all 0.3s ease'}}/>
+            <span style={{position:'absolute', left:'18px', top:'50%', transform:'translateY(-50%)', color:'#c9a96e', fontSize:'16px'}}>🔍</span>
+          </div>
+        </div>
+
+        <div style={{padding:'0 48px 60px', maxWidth:'1100px', margin:'0 auto', position:'relative', zIndex:1}}>
+          <div style={{display:'flex', alignItems:'center', gap:'16px', marginBottom:'28px'}}>
+            <div style={{width:'30px', height:'1px', background:'rgba(201,169,110,0.4)'}}/>
+            <h2 style={{fontSize:'11px', fontWeight:'600', color:'#c9a96e', letterSpacing:'3px', fontFamily:'Cinzel, serif'}}>
+              {filtrelenmis.length > 0 ? `${filtrelenmis.length} KARAKTER` : 'SONUÇ BULUNAMADI'}
+            </h2>
+            <div style={{flex:1, height:'1px', background:'rgba(201,169,110,0.2)'}}/>
+          </div>
+
+          <div style={{display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:'24px'}}>
+            {filtrelenmis.map((k, i) => (
+              <Link key={k.id} href={`/karakter/${k.id}`} style={{textDecoration:'none', color:'white'}}>
+                <div className="card-hover card-appear" style={{animationDelay:`${i*0.08}s`, background:'linear-gradient(145deg, #12101a, #1a1228)', border:'1px solid rgba(201,169,110,0.15)', borderRadius:'12px', overflow:'hidden', cursor:'pointer', boxShadow:'0 8px 32px rgba(0,0,0,0.4)', position:'relative'}}>
+                  <div style={{position:'absolute', left:0, top:0, bottom:0, width:'4px', background:'linear-gradient(to bottom, #7F77DD, #c9a96e)', opacity:0.6}}/>
+                  <div style={{height:'220px', overflow:'hidden', position:'relative'}}>
+                    {k.gorsel_url ? (
+                      <img src={k.gorsel_url} style={{width:'100%', height:'100%', objectFit:'cover'}}/>
+                    ) : (
+                      <div style={{width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'56px', background:'rgba(127,119,221,0.05)'}}>📖</div>
+                    )}
+                    <div style={{position:'absolute', bottom:0, left:0, right:0, height:'60px', background:'linear-gradient(to top, #12101a, transparent)'}}/>
+                  </div>
+                  <div style={{padding:'16px 18px 14px 22px'}}>
+                    <div style={{fontWeight:'600', fontSize:'16px', fontFamily:'Cinzel, serif', letterSpacing:'0.5px', marginBottom:'4px'}}>{k.karakter_adi}</div>
+                    <div style={{fontSize:'12px', color:'#c9a96e', marginBottom:'8px', fontFamily:'EB Garamond, serif', fontStyle:'italic'}}>{k.kitap_adi}</div>
+                    {k.aciklama && <div style={{fontSize:'12px', color:'#666', lineHeight:'1.5', fontFamily:'EB Garamond, serif', marginBottom:'10px'}}>{k.aciklama.slice(0,70)}...</div>}
+                    <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', paddingTop:'10px', borderTop:'1px solid rgba(255,255,255,0.05)'}}>
+                      <button onClick={(e)=>toggleBegeni(e,k.id)} style={{background:'transparent', border:'none', cursor:'pointer', display:'flex', alignItems:'center', gap:'6px', color:begeniler[k.id]?'#D4537E':'#555', padding:'0', transition:'transform 0.2s ease'}}
+                        onMouseEnter={e=>e.currentTarget.style.transform='scale(1.2)'}
+                        onMouseLeave={e=>e.currentTarget.style.transform='scale(1)'}>
+                        <span style={{fontSize:'16px'}}>{begeniler[k.id]?'❤️':'🤍'}</span>
+                        <span style={{fontSize:'13px'}}>{k.begeniler?.[0]?.count||0}</span>
+                      </button>
+                      <Link href={`/profil/${k.kullanici_id}`} onClick={e=>e.stopPropagation()}
+                        style={{fontSize:'11px', color:'#555', textDecoration:'none', fontFamily:'Cinzel, serif', letterSpacing:'0.5px', transition:'color 0.2s'}}
+                        onMouseEnter={e=>e.target.style.color='#c9a96e'}
+                        onMouseLeave={e=>e.target.style.color='#555'}>
+                        {k.kullanici_email?.split('@')[0]}
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        <footer style={{textAlign:'center', padding:'32px', borderTop:'1px solid rgba(201,169,110,0.1)', color:'#444', fontSize:'12px', fontFamily:'Cinzel, serif', letterSpacing:'2px'}}>
+          <span style={{color:'#c9a96e', opacity:0.6}}>✦</span> &nbsp; CHARFACES &nbsp; <span style={{color:'#c9a96e', opacity:0.6}}>✦</span>
+        </footer>
       </div>
     </main>
   )
