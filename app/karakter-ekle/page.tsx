@@ -9,6 +9,8 @@ export default function KarakterEkle() {
   const [aciklama, setAciklama] = useState('')
   const [gorsel, setGorsel] = useState(null)
   const [onizleme, setOnizleme] = useState(null)
+  const [aiGorselUrl, setAiGorselUrl] = useState(null)
+  const [aiUretiyor, setAiUretiyor] = useState(false)
   const [yukleniyor, setYukleniyor] = useState(false)
   const [mesaj, setMesaj] = useState('')
 
@@ -17,12 +19,44 @@ export default function KarakterEkle() {
     if (file) {
       setGorsel(file)
       setOnizleme(URL.createObjectURL(file))
+      setAiGorselUrl(null)
     }
+  }
+
+  async function aiGorselUret() {
+    if (!aciklama && !karakter) {
+      setMesaj('Önce karakteri tarif et!')
+      return
+    }
+    setAiUretiyor(true)
+    setMesaj('')
+
+    const prompt = `A highly realistic portrait of ${karakter || 'a character'} from the book "${kitap}", ${aciklama}. Cinematic lighting, photorealistic, ultra detailed, 8k, masterpiece, dramatic atmosphere`
+
+    const res = await fetch('/api/gorsel-uret', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt })
+    })
+    const data = await res.json()
+
+    if (data.url) {
+      setAiGorselUrl(data.url)
+      setOnizleme(data.url)
+      setGorsel(null)
+    } else {
+      setMesaj('Görsel üretilemedi, tekrar dene!')
+    }
+    setAiUretiyor(false)
   }
 
   async function handleSubmit() {
     if (!kitap || !karakter) {
       setMesaj('Kitap ve karakter adı zorunlu!')
+      return
+    }
+    if (!gorsel && !aiGorselUrl) {
+      setMesaj('Bir görsel ekle veya AI ile üret!')
       return
     }
     setYukleniyor(true)
@@ -33,8 +67,9 @@ export default function KarakterEkle() {
       return
     }
 
-    let gorsel_url = null
-    if (gorsel) {
+    let gorsel_url = aiGorselUrl || null
+
+    if (gorsel && !aiGorselUrl) {
       const dosyaAdi = `${user.id}-${Date.now()}-${gorsel.name}`
       const { error: uploadError } = await supabase.storage
         .from('gorseller')
@@ -57,11 +92,7 @@ export default function KarakterEkle() {
     if (error) setMesaj('Hata: ' + error.message)
     else {
       setMesaj('Karakter eklendi!')
-      setKitap('')
-      setKarakter('')
-      setAciklama('')
-      setGorsel(null)
-      setOnizleme(null)
+      setTimeout(() => window.location.href = '/', 1000)
     }
     setYukleniyor(false)
   }
@@ -94,23 +125,43 @@ export default function KarakterEkle() {
             style={{width:'100%', padding:'12px', background:'#1a1a1a', border:'1px solid #333', borderRadius:'8px', color:'white', fontSize:'14px', minHeight:'100px', resize:'vertical', boxSizing:'border-box', fontFamily:'sans-serif'}}/>
         </div>
 
+        <button onClick={aiGorselUret} disabled={aiUretiyor}
+          style={{width:'100%', padding:'12px', background:'linear-gradient(135deg, #7F77DD, #D4537E)', border:'none', borderRadius:'8px', color:'white', fontSize:'14px', fontWeight:'600', cursor:'pointer', marginBottom:'16px', opacity: aiUretiyor ? 0.7 : 1}}>
+          {aiUretiyor ? '✨ Görsel üretiliyor...' : '✨ AI ile Görsel Üret'}
+        </button>
+
+        {onizleme && (
+          <div style={{marginBottom:'16px'}}>
+            <img src={onizleme} style={{width:'100%', maxHeight:'300px', objectFit:'cover', borderRadius:'12px'}}/>
+            {aiGorselUrl && (
+              <div style={{marginTop:'12px', display:'flex', gap:'8px'}}>
+                <button onClick={aiGorselUret} disabled={aiUretiyor}
+                  style={{flex:1, padding:'10px', background:'transparent', border:'1px solid #7F77DD', borderRadius:'8px', color:'#7F77DD', cursor:'pointer', fontSize:'13px'}}>
+                  🔄 Tekrar üret
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         <div style={{marginBottom:'24px'}}>
-          <label style={{fontSize:'13px', color:'#888', display:'block', marginBottom:'6px'}}>Karakter görseli</label>
+          <label style={{fontSize:'13px', color:'#888', display:'block', marginBottom:'6px'}}>Ya da kendin yükle</label>
           <div style={{border:'2px dashed #333', borderRadius:'8px', padding:'20px', textAlign:'center', cursor:'pointer'}}
             onClick={() => document.getElementById('gorsel-input').click()}>
-            {onizleme ? (
-              <img src={onizleme} style={{width:'100%', maxHeight:'250px', objectFit:'cover', borderRadius:'8px'}}/>
-            ) : (
+            {!onizleme && (
               <div>
                 <div style={{fontSize:'32px', marginBottom:'8px'}}>📷</div>
                 <div style={{fontSize:'13px', color:'#666'}}>Görsel yüklemek için tıkla</div>
               </div>
             )}
+            {onizleme && !aiGorselUrl && (
+              <img src={onizleme} style={{width:'100%', maxHeight:'250px', objectFit:'cover', borderRadius:'8px'}}/>
+            )}
           </div>
           <input id="gorsel-input" type="file" accept="image/*" onChange={gorselSec} style={{display:'none'}}/>
         </div>
 
-        {mesaj && <p style={{color: mesaj.includes('Hata') ? '#ff6b6b' : '#7F77DD', fontSize:'13px', marginBottom:'16px'}}>{mesaj}</p>}
+        {mesaj && <p style={{color: mesaj.includes('Hata') || mesaj.includes('üretilemedi') ? '#ff6b6b' : '#7F77DD', fontSize:'13px', marginBottom:'16px'}}>{mesaj}</p>}
 
         <button onClick={handleSubmit} disabled={yukleniyor}
           style={{width:'100%', padding:'14px', background:'#7F77DD', border:'none', borderRadius:'8px', color:'white', fontSize:'15px', fontWeight:'600', cursor:'pointer', opacity: yukleniyor ? 0.7 : 1}}>
