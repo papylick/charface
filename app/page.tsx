@@ -4,11 +4,14 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from './lib/supabase'
 import BildirimZili from './components/BildirimZili'
+import DilSecici from './components/DilSecici'
+import { useDil } from './lib/useDil'
 
 const SAYFA_BOYUTU = 9
 
 export default function Home() {
   const router = useRouter()
+  const t = useDil()
   const [kullanici, setKullanici] = useState(null)
   const [profilAdi, setProfilAdi] = useState('')
   const [karakterler, setKarakterler] = useState([])
@@ -50,19 +53,29 @@ export default function Home() {
 
     aramaTimer.current = setTimeout(async () => {
       try {
-        const res = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(deger)}&limit=5`)
-        const data = await res.json()
-        if (data.docs) {
-          const kitaplar = data.docs
-            .filter(item => item.title)
-            .map(item => ({
-              baslik: item.title,
-              yazar: item.author_name?.[0] || '',
-              kapak: item.cover_i ? `https://covers.openlibrary.org/b/id/${item.cover_i}-S.jpg` : null
-            }))
-          setAramaOnerileri(kitaplar)
-          setAramaMenuAcik(true)
-        }
+        const [olRes, gbRes] = await Promise.all([
+          fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(deger)}&limit=4`),
+          fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(deger)}&maxResults=4&langRestrict=tr`)
+        ])
+        const olData = await olRes.json()
+        const gbData = await gbRes.json()
+
+        const olKitaplar = (olData.docs || []).filter(item => item.title).map(item => ({
+          baslik: item.title, yazar: item.author_name?.[0] || '',
+          kapak: item.cover_i ? `https://covers.openlibrary.org/b/id/${item.cover_i}-S.jpg` : null
+        }))
+        const gbKitaplar = (gbData.items || []).filter(item => item.volumeInfo?.title).map(item => ({
+          baslik: item.volumeInfo.title, yazar: item.volumeInfo.authors?.[0] || '',
+          kapak: item.volumeInfo.imageLinks?.thumbnail || null
+        }))
+
+        const hepsi = [...gbKitaplar, ...olKitaplar]
+        const benzersiz = hepsi.filter((k, i, arr) =>
+          arr.findIndex(x => x.baslik.toLowerCase() === k.baslik.toLowerCase()) === i
+        ).slice(0, 6)
+
+        setAramaOnerileri(benzersiz)
+        setAramaMenuAcik(benzersiz.length > 0)
       } catch (e) {
         setAramaOnerileri([])
       }
@@ -96,21 +109,14 @@ export default function Home() {
     }
 
     const { data } = await query
-
     if (data) {
-      if (sayfaNo === 0) {
-        setKarakterler(data)
-      } else {
-        setKarakterler(prev => [...prev, ...data])
-      }
+      if (sayfaNo === 0) setKarakterler(data)
+      else setKarakterler(prev => [...prev, ...data])
       setDahaVar(data.length === SAYFA_BOYUTU)
 
       const ids = [...new Set(data.map(k => k.kullanici_id))]
       if (ids.length > 0) {
-        const { data: profilData } = await supabase
-          .from('profiller')
-          .select('id, kullanici_adi')
-          .in('id', ids)
+        const { data: profilData } = await supabase.from('profiller').select('id, kullanici_adi').in('id', ids)
         if (profilData) {
           const obj = {}
           profilData.forEach(p => obj[p.id] = p.kullanici_adi)
@@ -125,18 +131,9 @@ export default function Home() {
     supabase.auth.getUser().then(async ({ data }) => {
       setKullanici(data.user)
       if (data.user) {
-        const { data: profil } = await supabase
-          .from('profiller')
-          .select('kullanici_adi')
-          .eq('id', data.user.id)
-          .single()
+        const { data: profil } = await supabase.from('profiller').select('kullanici_adi').eq('id', data.user.id).single()
         setProfilAdi(profil?.kullanici_adi || data.user.email?.split('@')[0])
-
-        const { count: okunmamis } = await supabase
-          .from('mesajlar')
-          .select('*', { count: 'exact', head: true })
-          .eq('alici_id', data.user.id)
-          .eq('okundu', false)
+        const { count: okunmamis } = await supabase.from('mesajlar').select('*', { count: 'exact', head: true }).eq('alici_id', data.user.id).eq('okundu', false)
         setOkunmamisMesaj(okunmamis || 0)
       }
     })
@@ -155,10 +152,7 @@ export default function Home() {
   }, [kullanici])
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setSayfa(0)
-      karakterleriYukle(0, arama)
-    }, 400)
+    const timer = setTimeout(() => { setSayfa(0); karakterleriYukle(0, arama) }, 400)
     return () => clearTimeout(timer)
   }, [arama])
 
@@ -166,16 +160,10 @@ export default function Home() {
     if (gozlemciRef.current) gozlemciRef.current.disconnect()
     gozlemciRef.current = new IntersectionObserver(entries => {
       if (entries[0].isIntersecting && dahaVar && !yukleniyorDaha) {
-        setSayfa(prev => {
-          const yeniSayfa = prev + 1
-          karakterleriYukle(yeniSayfa, arama)
-          return yeniSayfa
-        })
+        setSayfa(prev => { const yeniSayfa = prev + 1; karakterleriYukle(yeniSayfa, arama); return yeniSayfa })
       }
     }, { threshold: 0.1 })
-    if (sonElemanRef.current) {
-      gozlemciRef.current.observe(sonElemanRef.current)
-    }
+    if (sonElemanRef.current) gozlemciRef.current.observe(sonElemanRef.current)
     return () => gozlemciRef.current?.disconnect()
   }, [dahaVar, yukleniyorDaha, arama])
 
@@ -198,11 +186,7 @@ export default function Home() {
       setBegeniler(prev => ({ ...prev, [karakterId]: true }))
       setKarakterler(prev => prev.map(k => k.id === karakterId ? { ...k, begeniler: [{ count: (k.begeniler?.[0]?.count || 0) + 1 }] } : k))
       if (karakterSahibiId !== kullanici.id) {
-        fetch('/api/bildirim', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ kullanici_id: karakterSahibiId, gonderen_id: kullanici.id, tip: 'begeni', karakter_id: karakterId })
-        })
+        fetch('/api/bildirim', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kullanici_id: karakterSahibiId, gonderen_id: kullanici.id, tip: 'begeni', karakter_id: karakterId }) })
       }
     }
   }
@@ -283,16 +267,10 @@ export default function Home() {
                     <div className="grid-preview">
                       {Array.from({length:9}).map((_, i) => {
                         const k = karakterler[i % karakterler.length]
-                        return k?.gorsel_url ? (
-                          <img key={i} src={k.gorsel_url} alt=""/>
-                        ) : (
-                          <div key={i} style={{background:'#1a1228', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'24px'}}>📖</div>
-                        )
+                        return k?.gorsel_url ? <img key={i} src={k.gorsel_url} alt=""/> : <div key={i} style={{background:'#1a1228', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'24px'}}>📖</div>
                       })}
                     </div>
-                  ) : (
-                    <div style={{position:'absolute', inset:0, background:'linear-gradient(135deg, #1a0a2e, #0a0a12)'}}/>
-                  )}
+                  ) : <div style={{position:'absolute', inset:0, background:'linear-gradient(135deg, #1a0a2e, #0a0a12)'}}/>}
                   <div className="kapak-overlay"/>
                   <div className="kapak-cerceve"/>
                   <div className="kapak-icerik">
@@ -314,9 +292,7 @@ export default function Home() {
                 </div>
               </div>
             </div>
-            <div style={{textAlign:'center', color:'#555', fontSize:'13px', fontFamily:'EB Garamond, serif', fontStyle:'italic', animation:'pulse 2s ease infinite'}}>
-              ↑ Kitabı aç
-            </div>
+            <div style={{textAlign:'center', color:'#555', fontSize:'13px', fontFamily:'EB Garamond, serif', fontStyle:'italic', animation:'pulse 2s ease infinite'}}>↑ Kitabı aç</div>
           </div>
         </div>
       )}
@@ -341,28 +317,30 @@ export default function Home() {
                       </span>
                     )}
                   </button>
-                  <button className="btn-primary nav-btn" onClick={() => navigate('/karakter-ekle')}>✦ Ekle</button>
-                  <button className="btn-secondary nav-btn" onClick={() => navigate('/feed')}>Akış</button>
+                  <button className="btn-primary nav-btn" onClick={() => navigate('/karakter-ekle')}>{t.ekle}</button>
+                  <button className="btn-secondary nav-btn" onClick={() => navigate('/feed')}>{t.akis}</button>
+                  <button className="btn-secondary nav-btn" onClick={() => navigate('/trending')}>🔥</button><button className="btn-secondary nav-btn" onClick={() => navigate('/kullanici-ara')}>👤</button>
                   <button className="btn-secondary nav-btn" onClick={() => navigate('/profil')}>{profilAdi}</button>
                   <button onClick={cikisYap} style={{background:'transparent', border:'none', color:'#666', cursor:'pointer', fontSize:'12px', fontFamily:'Cinzel, serif'}}
                     onMouseEnter={e => e.target.style.color='#999'}
-                    onMouseLeave={e => e.target.style.color='#666'}>Çıkış</button>
+                    onMouseLeave={e => e.target.style.color='#666'}>{t.cikis}</button>
                 </>
               ) : (
                 <>
-                  <button className="btn-secondary nav-btn" onClick={() => navigate('/giris')}>Giriş</button>
-                  <button className="btn-primary nav-btn" onClick={() => navigate('/giris')}>Üye Ol</button>
+                  <button className="btn-secondary nav-btn" onClick={() => navigate('/giris')}>{t.giris}</button>
+                  <button className="btn-primary nav-btn" onClick={() => navigate('/giris')}>{t.uyeOl}</button>
                 </>
               )}
+              <DilSecici />
             </div>
           </div>
         </nav>
 
         <div className="hero-padding" style={{textAlign:'center', padding:'60px 32px 32px', position:'relative', zIndex:1}}>
-          <div className="hero-subtitle" style={{marginBottom:'16px', fontSize:'11px', letterSpacing:'4px', color:'#c9a96e', fontFamily:'Cinzel, serif', opacity:0.8}}>✦ &nbsp; HAYAL ET &nbsp; ✦ &nbsp; ÜRET &nbsp; ✦ &nbsp; PAYLAŞ &nbsp; ✦</div>
+          <div className="hero-subtitle" style={{marginBottom:'16px', fontSize:'11px', letterSpacing:'4px', color:'#c9a96e', fontFamily:'Cinzel, serif', opacity:0.8}}>{t.hayalEt}</div>
           <h1 className="hero-title" style={{fontSize:'52px', fontWeight:'700', marginBottom:'16px', lineHeight:'1.2', fontFamily:'Cinzel, serif', letterSpacing:'2px', textShadow:'0 0 60px rgba(127,119,221,0.3)'}}>
-            Kitap Karakterlerini<br/>
-            <span style={{background:'linear-gradient(135deg, #7F77DD, #c9a96e)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text'}}>Görselleştir</span>
+            {t.baslik}<br/>
+            <span style={{background:'linear-gradient(135deg, #7F77DD, #c9a96e)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text'}}>{t.baslikVurgu}</span>
           </h1>
           <div style={{display:'flex', alignItems:'center', justifyContent:'center', gap:'16px', marginBottom:'28px'}}>
             <div style={{width:'60px', height:'1px', background:'linear-gradient(to right, transparent, #c9a96e)'}}/>
@@ -370,12 +348,10 @@ export default function Home() {
             <div style={{width:'60px', height:'1px', background:'linear-gradient(to left, transparent, #c9a96e)'}}/>
           </div>
 
-          {/* ARAMA KUTUSU — kitap önerileri ile */}
           <div ref={aramaRef} className="search-input-wrapper" style={{position:'relative', maxWidth:'520px', margin:'0 auto'}}>
-            <input type="text" placeholder="Karakter veya kitap ara..." value={arama}
+            <input type="text" placeholder={t.aramaPlaceholder} value={arama}
               onChange={e => aramaDegisti(e.target.value)}
-              className="search-input"
-              autoComplete="off"
+              className="search-input" autoComplete="off"
               style={{width:'100%', padding:'16px 24px 16px 50px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(201,169,110,0.3)', borderRadius:'8px', color:'white', fontSize:'15px', boxSizing:'border-box', fontFamily:'EB Garamond, serif', transition:'all 0.3s ease'}}/>
             <span style={{position:'absolute', left:'18px', top:'50%', transform:'translateY(-50%)', color:'#c9a96e', fontSize:'16px'}}>🔍</span>
 
@@ -385,7 +361,11 @@ export default function Home() {
                 {aramaOnerileri.map((k, i) => (
                   <div key={i} className="kitap-oneri" onClick={() => kitapSec(k.baslik)}>
                     {k.kapak ? (
-                      <img src={k.kapak} style={{width:'32px', height:'44px', objectFit:'cover', borderRadius:'3px', flexShrink:0}}/>
+                      <>
+                        <img src={k.kapak} style={{width:'32px', height:'44px', objectFit:'cover', borderRadius:'3px', flexShrink:0}}
+                          onError={e => { e.currentTarget.style.display='none'; e.currentTarget.nextSibling.style.display='flex' }}/>
+                        <div style={{width:'32px', height:'44px', background:'rgba(127,119,221,0.2)', borderRadius:'3px', display:'none', alignItems:'center', justifyContent:'center', fontSize:'16px', flexShrink:0}}>📖</div>
+                      </>
                     ) : (
                       <div style={{width:'32px', height:'44px', background:'rgba(127,119,221,0.2)', borderRadius:'3px', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'16px', flexShrink:0}}>📖</div>
                     )}
@@ -404,7 +384,7 @@ export default function Home() {
           <div style={{display:'flex', alignItems:'center', gap:'16px', marginBottom:'28px'}}>
             <div style={{width:'30px', height:'1px', background:'rgba(201,169,110,0.4)'}}/>
             <h2 style={{fontSize:'11px', fontWeight:'600', color:'#c9a96e', letterSpacing:'3px', fontFamily:'Cinzel, serif'}}>
-              {karakterler.length > 0 ? `${karakterler.length} KARAKTER` : 'SONUÇ BULUNAMADI'}
+              {karakterler.length > 0 ? `${karakterler.length} ${t.karakter}` : t.sonucBulunamadi}
             </h2>
             <div style={{flex:1, height:'1px', background:'rgba(201,169,110,0.2)'}}/>
           </div>
@@ -414,11 +394,7 @@ export default function Home() {
                 style={{animationDelay:`${i*0.08}s`, background:'linear-gradient(145deg, #12101a, #1a1228)', border:'1px solid rgba(201,169,110,0.15)', borderRadius:'12px', overflow:'hidden', cursor:'pointer', boxShadow:'0 8px 32px rgba(0,0,0,0.4)', position:'relative'}}>
                 <div style={{position:'absolute', left:0, top:0, bottom:0, width:'4px', background:'linear-gradient(to bottom, #7F77DD, #c9a96e)', opacity:0.6}}/>
                 <div style={{height:'220px', overflow:'hidden', position:'relative'}}>
-                  {k.gorsel_url ? (
-                    <img src={k.gorsel_url} style={{width:'100%', height:'100%', objectFit:'cover'}}/>
-                  ) : (
-                    <div style={{width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'56px', background:'rgba(127,119,221,0.05)'}}>📖</div>
-                  )}
+                  {k.gorsel_url ? <img src={k.gorsel_url} style={{width:'100%', height:'100%', objectFit:'cover'}}/> : <div style={{width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'56px', background:'rgba(127,119,221,0.05)'}}>📖</div>}
                   <div style={{position:'absolute', bottom:0, left:0, right:0, height:'60px', background:'linear-gradient(to top, #12101a, transparent)'}}/>
                 </div>
                 <div style={{padding:'16px 18px 14px 22px'}}>
@@ -448,13 +424,11 @@ export default function Home() {
             {yukleniyorDaha && (
               <div style={{color:'#c9a96e', fontFamily:'Cinzel, serif', fontSize:'12px', letterSpacing:'2px', display:'flex', alignItems:'center', gap:'8px'}}>
                 <span style={{display:'inline-block', animation:'spin 1s linear infinite'}}>✦</span>
-                YÜKLENİYOR
+                {t.yukleniyor}
               </div>
             )}
             {!dahaVar && karakterler.length > 0 && (
-              <div style={{color:'#333', fontFamily:'EB Garamond, serif', fontSize:'13px', fontStyle:'italic'}}>
-                Tüm karakterler yüklendi
-              </div>
+              <div style={{color:'#333', fontFamily:'EB Garamond, serif', fontSize:'13px', fontStyle:'italic'}}>{t.tumKarakterlerYuklendi}</div>
             )}
           </div>
         </div>

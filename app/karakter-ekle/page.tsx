@@ -4,6 +4,12 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 
+const HAZIR_ETIKETLER = [
+  '#fantastik', '#distopya', '#romantik', '#macera', '#gizem',
+  '#korku', '#bilimkurgu', '#tarih', '#dram', '#komedi',
+  '#gerilim', '#polisiye', '#mitoloji', '#gotik', '#aşk'
+]
+
 export default function KarakterEkle() {
   const router = useRouter()
   const [kitap, setKitap] = useState('')
@@ -12,6 +18,8 @@ export default function KarakterEkle() {
   const [kitapAraniyor, setKitapAraniyor] = useState(false)
   const [karakter, setKarakter] = useState('')
   const [aciklama, setAciklama] = useState('')
+  const [etiketler, setEtiketler] = useState([])
+  const [etiketInput, setEtiketInput] = useState('')
   const [gorsel, setGorsel] = useState(null)
   const [onizleme, setOnizleme] = useState(null)
   const [aiGorselUrl, setAiGorselUrl] = useState(null)
@@ -46,21 +54,14 @@ export default function KarakterEkle() {
         const olData = await olRes.json()
         const gbData = await gbRes.json()
 
-        const olKitaplar = (olData.docs || [])
-          .filter(item => item.title)
-          .map(item => ({
-            baslik: item.title,
-            yazar: item.author_name?.[0] || '',
-            kapak: item.cover_i ? `https://covers.openlibrary.org/b/id/${item.cover_i}-S.jpg` : null
-          }))
-
-        const gbKitaplar = (gbData.items || [])
-          .filter(item => item.volumeInfo?.title)
-          .map(item => ({
-            baslik: item.volumeInfo.title,
-            yazar: item.volumeInfo.authors?.[0] || '',
-            kapak: item.volumeInfo.imageLinks?.thumbnail || null
-          }))
+        const olKitaplar = (olData.docs || []).filter(item => item.title).map(item => ({
+          baslik: item.title, yazar: item.author_name?.[0] || '',
+          kapak: item.cover_i ? `https://covers.openlibrary.org/b/id/${item.cover_i}-S.jpg` : null
+        }))
+        const gbKitaplar = (gbData.items || []).filter(item => item.volumeInfo?.title).map(item => ({
+          baslik: item.volumeInfo.title, yazar: item.volumeInfo.authors?.[0] || '',
+          kapak: item.volumeInfo.imageLinks?.thumbnail || null
+        }))
 
         const hepsi = [...gbKitaplar, ...olKitaplar]
         const benzersiz = hepsi.filter((k, i, arr) =>
@@ -80,6 +81,24 @@ export default function KarakterEkle() {
     setKitap(baslik)
     setKitapMenuAcik(false)
     setKitapOnerileri([])
+  }
+
+  function etiketEkle(etiket) {
+    const temiz = etiket.startsWith('#') ? etiket : `#${etiket}`
+    if (etiketler.includes(temiz) || etiketler.length >= 5) return
+    setEtiketler(prev => [...prev, temiz])
+    setEtiketInput('')
+  }
+
+  function etiketSil(etiket) {
+    setEtiketler(prev => prev.filter(e => e !== etiket))
+  }
+
+  function etiketInputKeyDown(e) {
+    if (e.key === 'Enter' && etiketInput.trim()) {
+      e.preventDefault()
+      etiketEkle(etiketInput.trim())
+    }
   }
 
   function gorselSec(e) {
@@ -129,16 +148,22 @@ export default function KarakterEkle() {
       }
     }
 
-    const { error } = await supabase.from('karakterler').insert({
+    const { data: yeniKarakter, error } = await supabase.from('karakterler').insert({
       kitap_adi: kitap, karakter_adi: karakter, aciklama,
       gorsel_url, kullanici_id: user.id, kullanici_email: user.email,
-    })
+    }).select().single()
 
-    if (error) setMesaj('Hata: ' + error.message)
-    else {
-      setMesaj('Karakter eklendi!')
-      setTimeout(() => router.push('/'), 1000)
+    if (error) { setMesaj('Hata: ' + error.message); setYukleniyor(false); return }
+
+    // Etiketleri kaydet
+    if (etiketler.length > 0 && yeniKarakter) {
+      await supabase.from('etiketler').insert(
+        etiketler.map(e => ({ karakter_id: yeniKarakter.id, etiket: e }))
+      )
     }
+
+    setMesaj('Karakter eklendi!')
+    setTimeout(() => router.push('/'), 1000)
     setYukleniyor(false)
   }
 
@@ -161,6 +186,10 @@ export default function KarakterEkle() {
         .kitap-oneri { display:flex; align-items:center; gap:12px; padding:10px 14px; cursor:pointer; transition:background 0.2s; border-bottom:1px solid rgba(255,255,255,0.04); }
         .kitap-oneri:hover { background:rgba(201,169,110,0.08); }
         .kitap-oneri:last-child { border-bottom:none; }
+        .etiket-chip { display:inline-flex; align-items:center; gap:6px; padding:6px 12px; background:rgba(127,119,221,0.15); border:1px solid rgba(127,119,221,0.3); border-radius:20px; font-size:12px; color:#9d8fff; font-family:'Cinzel',serif; cursor:pointer; transition:all 0.2s; }
+        .etiket-chip:hover { background:rgba(127,119,221,0.25); }
+        .etiket-hazir { display:inline-flex; padding:5px 10px; background:rgba(255,255,255,0.03); border:1px solid rgba(201,169,110,0.15); border-radius:20px; font-size:11px; color:#888; font-family:'EB Garamond',serif; cursor:pointer; transition:all 0.2s; margin:3px; }
+        .etiket-hazir:hover { background:rgba(201,169,110,0.08); color:#c9a96e; border-color:rgba(201,169,110,0.3); }
         @keyframes spin { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
         .spinning { animation:spin 1s linear infinite; display:inline-block; }
       `}</style>
@@ -185,6 +214,7 @@ export default function KarakterEkle() {
         <div style={{background:'linear-gradient(145deg, #12101a, #1a1228)', border:'1px solid rgba(201,169,110,0.15)', borderRadius:'16px', padding:'40px', boxShadow:'0 20px 60px rgba(0,0,0,0.5)', position:'relative', overflow:'hidden'}}>
           <div style={{position:'absolute', left:0, top:0, bottom:0, width:'4px', background:'linear-gradient(to bottom, #7F77DD, #c9a96e)', opacity:0.6}}/>
 
+          {/* KİTAP */}
           <div style={{marginBottom:'24px'}} ref={kitapRef}>
             <label className="label">KİTAP ADI *</label>
             <div style={{position:'relative'}}>
@@ -218,16 +248,55 @@ export default function KarakterEkle() {
             </div>
           </div>
 
+          {/* KARAKTER */}
           <div style={{marginBottom:'24px'}}>
             <label className="label">KARAKTER ADI *</label>
             <input type="text" placeholder="örn. Gandalf" value={karakter} onChange={e => setKarakter(e.target.value)} className="input-field"/>
           </div>
 
+          {/* AÇIKLAMA */}
           <div style={{marginBottom:'24px'}}>
             <label className="label">KARAKTERİ TARİF ET</label>
             <textarea placeholder="örn. Uzun beyaz saçlı, gri gözlü, güçlü bir büyücü..." value={aciklama} onChange={e => setAciklama(e.target.value)} className="input-field" style={{minHeight:'120px', resize:'vertical', fontFamily:'EB Garamond, serif', lineHeight:'1.6'}}/>
           </div>
 
+          {/* ETİKETLER */}
+          <div style={{marginBottom:'24px'}}>
+            <label className="label">ETİKETLER <span style={{color:'#555', fontSize:'10px'}}>(max 5)</span></label>
+
+            {/* Seçilen etiketler */}
+            {etiketler.length > 0 && (
+              <div style={{display:'flex', flexWrap:'wrap', gap:'8px', marginBottom:'12px'}}>
+                {etiketler.map(e => (
+                  <span key={e} className="etiket-chip" onClick={() => etiketSil(e)}>
+                    {e} <span style={{fontSize:'10px', opacity:0.7}}>✕</span>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* Etiket input */}
+            {etiketler.length < 5 && (
+              <input
+                type="text"
+                placeholder="#fantastik gibi yaz, Enter'a bas..."
+                value={etiketInput}
+                onChange={e => setEtiketInput(e.target.value)}
+                onKeyDown={etiketInputKeyDown}
+                className="input-field"
+                style={{marginBottom:'10px'}}
+              />
+            )}
+
+            {/* Hazır etiketler */}
+            <div style={{display:'flex', flexWrap:'wrap', gap:'4px'}}>
+              {HAZIR_ETIKETLER.filter(e => !etiketler.includes(e)).slice(0, 10).map(e => (
+                <span key={e} className="etiket-hazir" onClick={() => etiketEkle(e)}>{e}</span>
+              ))}
+            </div>
+          </div>
+
+          {/* AI GÖRSEL */}
           <div style={{marginBottom:'24px'}}>
             <button onClick={aiGorselUret} disabled={aiUretiyor} className="btn-ai">
               {aiUretiyor ? <span><span className="spinning">✦</span> &nbsp; Görsel üretiliyor... (30-60 sn)</span> : '✦ AI ile Görsel Üret'}
