@@ -350,8 +350,9 @@ export default function Home() {
 
           <div ref={aramaRef} className="search-input-wrapper" style={{position:'relative', maxWidth:'520px', margin:'0 auto'}}>
             <input type="text" placeholder={t.aramaPlaceholder} value={arama}
-              onChange={e => aramaDegisti(e.target.value)}
-              className="search-input" autoComplete="off"
+  onChange={e => aramaDegisti(e.target.value)}
+  onFocus={() => router.push('/arama')}
+  className="search-input" autoComplete="off"
               style={{width:'100%', padding:'16px 24px 16px 50px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(201,169,110,0.3)', borderRadius:'8px', color:'white', fontSize:'15px', boxSizing:'border-box', fontFamily:'EB Garamond, serif', transition:'all 0.3s ease'}}/>
             <span style={{position:'absolute', left:'18px', top:'50%', transform:'translateY(-50%)', color:'#c9a96e', fontSize:'16px'}}>🔍</span>
 
