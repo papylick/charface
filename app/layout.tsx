@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import Script from "next/script";
 
 export const metadata: Metadata = {
   title: "CharFaces - Kitap Karakterlerini Görselleştir",
@@ -47,9 +48,24 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="tr">
+      <head>
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-FTWSNCQ4E2"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-FTWSNCQ4E2');
+          `}
+        </Script>
+      </head>
       <body style={{margin:0, padding:0, background:'#0a0a0f'}}>
         {children}
       </body>
     </html>
   );
 }
+``
