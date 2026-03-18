@@ -29,6 +29,8 @@ export default function KarakterDetay() {
   const [raporAciklama, setRaporAciklama] = useState('')
   const [raporGonderildi, setRaporGonderildi] = useState(false)
   const [etiketler, setEtiketler] = useState([])
+  const [paylasMenuAcik, setPaylasMenuAcik] = useState(false)
+  const [kopyalandi, setKopyalandi] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -60,7 +62,6 @@ export default function KarakterDetay() {
     supabase.from('yorumlar').select('*').eq('karakter_id', id).order('created_at', { ascending: true }).then(({ data }) => {
       if (data) setYorumlar(data)
     })
-    // Etiketleri getir
     supabase.from('etiketler').select('etiket').eq('karakter_id', id).then(({ data }) => {
       if (data) setEtiketler(data.map(e => e.etiket))
     })
@@ -72,6 +73,36 @@ export default function KarakterDetay() {
       if (data && data.length > 0) setBegendi(true)
     })
   }, [kullanici, id])
+
+  const karakterUrl = typeof window !== 'undefined' ? window.location.href : ''
+  const paylasMetni = karakter ? `${karakter.karakter_adi} - ${karakter.kitap_adi} karakterini CharFaces'te keşfet! 📖✨` : ''
+
+  function twitterPaylas() {
+    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(paylasMetni)}&url=${encodeURIComponent(karakterUrl)}`
+    window.open(url, '_blank')
+    setPaylasMenuAcik(false)
+  }
+
+  function whatsappPaylas() {
+    const url = `https://wa.me/?text=${encodeURIComponent(paylasMetni + ' ' + karakterUrl)}`
+    window.open(url, '_blank')
+    setPaylasMenuAcik(false)
+  }
+
+  function linkKopyala() {
+    navigator.clipboard.writeText(karakterUrl)
+    setKopyalandi(true)
+    setPaylasMenuAcik(false)
+    setTimeout(() => setKopyalandi(false), 2000)
+  }
+
+  function nativePaylas() {
+    if (navigator.share) {
+      navigator.share({ title: paylasMetni, url: karakterUrl })
+    } else {
+      setPaylasMenuAcik(prev => !prev)
+    }
+  }
 
   async function toggleBegeni() {
     if (!kullanici) { router.push('/giris'); return }
@@ -129,9 +160,7 @@ export default function KarakterDetay() {
 
   async function karakterGuncelle() {
     const { error } = await supabase.from('karakterler').update({
-      karakter_adi: duzenleAdi,
-      kitap_adi: duzenleKitap,
-      aciklama: duzenleAciklama
+      karakter_adi: duzenleAdi, kitap_adi: duzenleKitap, aciklama: duzenleAciklama
     }).eq('id', id)
     if (!error) {
       setKarakter(prev => ({ ...prev, karakter_adi: duzenleAdi, kitap_adi: duzenleKitap, aciklama: duzenleAciklama }))
@@ -143,8 +172,7 @@ export default function KarakterDetay() {
     if (!kullanici) { router.push('/giris'); return }
     if (!raporSebep) return
     const { error } = await supabase.from('raporlar').insert({
-      rapor_eden_id: kullanici.id, karakter_id: id,
-      sebep: raporSebep, aciklama: raporAciklama
+      rapor_eden_id: kullanici.id, karakter_id: id, sebep: raporSebep, aciklama: raporAciklama
     })
     if (!error) {
       setRaporGonderildi(true)
@@ -193,8 +221,11 @@ export default function KarakterDetay() {
         .koleksiyon-menu { position:absolute; top:100%; left:0; background:linear-gradient(145deg,#12101a,#1a1228); border:1px solid rgba(201,169,110,0.2); border-radius:10px; padding:8px; min-width:220px; z-index:9999; box-shadow:0 10px 40px rgba(0,0,0,0.8); margin-top:8px; }
         .koleksiyon-item { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:6px; cursor:pointer; transition:background 0.2s; font-family:'EB Garamond',serif; font-size:14px; color:#bbb; }
         .koleksiyon-item:hover { background:rgba(201,169,110,0.08); color:white; }
-        .etiket-chip { display:inline-flex; padding:5px 12px; background:rgba(127,119,221,0.1); border:1px solid rgba(127,119,221,0.25); border-radius:20px; font-size:12px; color:#9d8fff; font-family:'EB Garamond',serif; cursor:pointer; transition:all 0.2s; text-decoration:none; }
+        .etiket-chip { display:inline-flex; padding:5px 12px; background:rgba(127,119,221,0.1); border:1px solid rgba(127,119,221,0.25); border-radius:20px; font-size:12px; color:#9d8fff; font-family:'EB Garamond',serif; cursor:pointer; transition:all 0.2s; }
         .etiket-chip:hover { background:rgba(127,119,221,0.2); border-color:rgba(127,119,221,0.4); }
+        .paylas-menu { position:absolute; top:100%; left:0; background:linear-gradient(145deg,#12101a,#1a1228); border:1px solid rgba(201,169,110,0.2); border-radius:10px; padding:8px; min-width:180px; z-index:9999; box-shadow:0 10px 40px rgba(0,0,0,0.8); margin-top:8px; }
+        .paylas-item { display:flex; align-items:center; gap:10px; padding:10px 14px; border-radius:6px; cursor:pointer; transition:background 0.2s; font-family:'EB Garamond',serif; font-size:14px; color:#bbb; }
+        .paylas-item:hover { background:rgba(201,169,110,0.08); color:white; }
       `}</style>
 
       {/* RAPOR MODAL */}
@@ -285,7 +316,6 @@ export default function KarakterDetay() {
                 </h1>
                 <div style={{fontSize:'14px', color:'#c9a96e', fontFamily:'EB Garamond, serif', fontStyle:'italic', marginBottom:'12px'}}>{karakter.kitap_adi}</div>
 
-                {/* ETİKETLER */}
                 {etiketler.length > 0 && (
                   <div style={{display:'flex', flexWrap:'wrap', gap:'8px', marginBottom:'16px'}}>
                     {etiketler.map(e => (
@@ -338,6 +368,27 @@ export default function KarakterDetay() {
                       )}
                     </div>
                   )}
+
+                  {/* PAYLAŞ BUTONU */}
+                  <div style={{position:'relative'}}>
+                    <button className="btn-ghost" onClick={nativePaylas}
+                      style={{display:'flex', alignItems:'center', gap:'6px'}}>
+                      {kopyalandi ? '✓ Kopyalandı!' : '🔗 Paylaş'}
+                    </button>
+                    {paylasMenuAcik && (
+                      <div className="paylas-menu">
+                        <div className="paylas-item" onClick={twitterPaylas}>
+                          <span style={{fontSize:'16px'}}>🐦</span> Twitter / X
+                        </div>
+                        <div className="paylas-item" onClick={whatsappPaylas}>
+                          <span style={{fontSize:'16px'}}>💬</span> WhatsApp
+                        </div>
+                        <div className="paylas-item" onClick={linkKopyala}>
+                          <span style={{fontSize:'16px'}}>🔗</span> Linki Kopyala
+                        </div>
+                      </div>
+                    )}
+                  </div>
 
                   {benimKarakterim && (
                     <>
