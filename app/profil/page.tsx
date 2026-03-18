@@ -21,37 +21,25 @@ export default function Profil() {
       setKullanici(data.user)
 
       const { data: profilData } = await supabase
-        .from('profiller')
-        .select('*')
-        .eq('id', data.user.id)
-        .single()
+        .from('profiller').select('*').eq('id', data.user.id).single()
       setProfil(profilData)
 
       const { data: chars } = await supabase
-        .from('karakterler')
-        .select('*, begeniler(count)')
-        .eq('kullanici_id', data.user.id)
-        .order('created_at', { ascending: false })
+        .from('karakterler').select('*, begeniler(count)')
+        .eq('kullanici_id', data.user.id).order('created_at', { ascending: false })
       if (chars) setKarakterler(chars)
 
       const { count: takipci } = await supabase
-        .from('follows')
-        .select('*', { count: 'exact', head: true })
-        .eq('following_id', data.user.id)
+        .from('follows').select('*', { count: 'exact', head: true }).eq('following_id', data.user.id)
       setTakipciSayisi(takipci || 0)
 
       const { count: takipEdilen } = await supabase
-        .from('follows')
-        .select('*', { count: 'exact', head: true })
-        .eq('follower_id', data.user.id)
+        .from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', data.user.id)
       setTakipEdilenSayisi(takipEdilen || 0)
 
-      // Okunmamış mesaj sayısı
       const { count: okunmamis } = await supabase
-        .from('mesajlar')
-        .select('*', { count: 'exact', head: true })
-        .eq('alici_id', data.user.id)
-        .eq('okundu', false)
+        .from('mesajlar').select('*', { count: 'exact', head: true })
+        .eq('alici_id', data.user.id).eq('okundu', false)
       setOkunmamisMesaj(okunmamis || 0)
 
       setYukleniyor(false)
@@ -76,25 +64,26 @@ export default function Profil() {
     <main style={{minHeight:'100vh', background:'linear-gradient(135deg, #0a0a0f 0%, #120a1a 50%, #0a0f0a 100%)', color:'white', fontFamily:'Georgia, serif'}}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap');
-        .card-hover { transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.4s ease; }
-        .card-hover:hover { transform: translateY(-8px); box-shadow: -4px 16px 40px rgba(0,0,0,0.6), 0 0 20px rgba(127,119,221,0.2); }
-        .card-appear { animation: cardAppear 0.6s ease forwards; opacity: 0; }
-        @keyframes cardAppear { 0% { opacity: 0; transform: translateY(20px); } 100% { opacity: 1; transform: translateY(0); } }
-        .btn-primary { background: linear-gradient(135deg, #7F77DD, #9d77dd); border: none; color: white; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-family: 'Cinzel', serif; font-size: 13px; letter-spacing: 0.5px; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(127,119,221,0.3); }
-        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(127,119,221,0.5); }
-        .btn-secondary { background: transparent; border: 1px solid rgba(201,169,110,0.4); color: #c9a96e; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-family: 'Cinzel', serif; font-size: 13px; letter-spacing: 0.5px; transition: all 0.3s ease; }
-        .btn-secondary:hover { background: rgba(201,169,110,0.1); transform: translateY(-2px); }
-        .stat-box { text-align: center; padding: 16px 24px; background: rgba(255,255,255,0.02); border: 1px solid rgba(201,169,110,0.1); border-radius: 8px; transition: all 0.3s ease; }
-        .stat-box:hover { background: rgba(201,169,110,0.05); border-color: rgba(201,169,110,0.3); }
-        @media (max-width: 768px) {
-          .profil-kart { flex-direction: column !important; text-align: center; }
-          .stat-row { justify-content: center !important; }
-          .karakter-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 12px !important; }
-          .main-padding { padding: 24px 16px !important; }
-          .nav-padding { padding: 12px 16px !important; }
+        .card-hover { transition:transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.4s ease; }
+        .card-hover:hover { transform:translateY(-8px); box-shadow:-4px 16px 40px rgba(0,0,0,0.6), 0 0 20px rgba(127,119,221,0.2); }
+        .card-appear { animation:cardAppear 0.6s ease forwards; opacity:0; }
+        @keyframes cardAppear { 0%{opacity:0;transform:translateY(20px)} 100%{opacity:1;transform:translateY(0)} }
+        .btn-primary { background:linear-gradient(135deg,#7F77DD,#9d77dd); border:none; color:white; padding:10px 20px; border-radius:6px; cursor:pointer; font-family:'Cinzel',serif; font-size:13px; letter-spacing:0.5px; transition:all 0.3s ease; box-shadow:0 4px 15px rgba(127,119,221,0.3); }
+        .btn-primary:hover { transform:translateY(-2px); }
+        .btn-secondary { background:transparent; border:1px solid rgba(201,169,110,0.4); color:#c9a96e; padding:10px 20px; border-radius:6px; cursor:pointer; font-family:'Cinzel',serif; font-size:13px; letter-spacing:0.5px; transition:all 0.3s ease; }
+        .btn-secondary:hover { background:rgba(201,169,110,0.1); transform:translateY(-2px); }
+        .stat-box { text-align:center; padding:16px 24px; background:rgba(255,255,255,0.02); border:1px solid rgba(201,169,110,0.1); border-radius:8px; transition:all 0.3s ease; }
+        .stat-box:hover { background:rgba(201,169,110,0.05); border-color:rgba(201,169,110,0.3); }
+        .avatar-ring { width:90px; height:90px; border-radius:50%; overflow:hidden; border:3px solid rgba(201,169,110,0.4); box-shadow:0 0 30px rgba(127,119,221,0.4); flexShrink:0; background:linear-gradient(135deg,#7F77DD,#c9a96e); display:flex; align-items:center; justify-content:center; }
+        @media (max-width:768px) {
+          .profil-kart { flex-direction:column !important; text-align:center; }
+          .stat-row { justify-content:center !important; }
+          .karakter-grid { grid-template-columns:repeat(2,1fr) !important; gap:12px !important; }
+          .main-padding { padding:24px 16px !important; }
+          .nav-padding { padding:12px 16px !important; }
         }
-        @media (max-width: 480px) {
-          .karakter-grid { grid-template-columns: repeat(1, 1fr) !important; }
+        @media (max-width:480px) {
+          .karakter-grid { grid-template-columns:repeat(1,1fr) !important; }
         }
       `}</style>
 
@@ -104,8 +93,6 @@ export default function Profil() {
         </a>
         <div style={{display:'flex', gap:'10px', alignItems:'center'}}>
           <BildirimZili kullaniciId={kullanici?.id} />
-
-          {/* 💬 MESAJ KUTUSU İKONU */}
           <button onClick={() => router.push('/mesajlar')} style={{background:'transparent', border:'1px solid rgba(201,169,110,0.4)', color:'#c9a96e', width:'42px', height:'42px', borderRadius:'8px', cursor:'pointer', fontSize:'18px', display:'flex', alignItems:'center', justifyContent:'center', position:'relative', transition:'all 0.3s ease'}}
             onMouseEnter={e => e.currentTarget.style.background='rgba(201,169,110,0.1)'}
             onMouseLeave={e => e.currentTarget.style.background='transparent'}>
@@ -116,7 +103,6 @@ export default function Profil() {
               </span>
             )}
           </button>
-
           <button className="btn-primary" onClick={() => router.push('/karakter-ekle')}>✦ Karakter Ekle</button>
           <button className="btn-secondary" onClick={() => router.push('/koleksiyonlar')}>📚 Listelerim</button>
           <button className="btn-secondary" onClick={() => router.push('/feed')}>Akış</button>
@@ -132,11 +118,30 @@ export default function Profil() {
           <div style={{position:'absolute', left:0, top:0, bottom:0, width:'4px', background:'linear-gradient(to bottom, #7F77DD, #c9a96e)', opacity:0.6}}/>
 
           <div className="profil-kart" style={{display:'flex', alignItems:'center', gap:'32px'}}>
-            <div style={{width:'90px', height:'90px', borderRadius:'50%', background:'linear-gradient(135deg, #7F77DD, #c9a96e)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'36px', fontWeight:'700', flexShrink:0, fontFamily:'Cinzel, serif', boxShadow:'0 0 30px rgba(127,119,221,0.4)'}}>
-              {goruntulenenAd?.[0]?.toUpperCase()}
+
+            {/* AVATAR */}
+            <div style={{width:'90px', height:'90px', borderRadius:'50%', overflow:'hidden', border:'3px solid rgba(201,169,110,0.4)', boxShadow:'0 0 30px rgba(127,119,221,0.4)', flexShrink:0, background:'linear-gradient(135deg, #7F77DD, #c9a96e)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer'}}
+              onClick={() => router.push('/ayarlar')}>
+              {profil?.avatar_url ? (
+                <img src={profil.avatar_url} style={{width:'100%', height:'100%', objectFit:'cover'}}
+                  onError={e => e.currentTarget.style.display='none'}/>
+              ) : (
+                <span style={{fontSize:'36px', fontWeight:'700', fontFamily:'Cinzel, serif', color:'white'}}>
+                  {goruntulenenAd?.[0]?.toUpperCase()}
+                </span>
+              )}
             </div>
+
             <div style={{flex:1}}>
-              <div style={{fontSize:'24px', fontWeight:'700', fontFamily:'Cinzel, serif', letterSpacing:'1px', marginBottom:'4px'}}>{goruntulenenAd}</div>
+              <div style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'4px'}}>
+                <div style={{fontSize:'24px', fontWeight:'700', fontFamily:'Cinzel, serif', letterSpacing:'1px'}}>{goruntulenenAd}</div>
+                <button onClick={() => router.push('/ayarlar')}
+                  style={{background:'transparent', border:'1px solid rgba(201,169,110,0.2)', color:'#666', padding:'3px 10px', borderRadius:'4px', cursor:'pointer', fontFamily:'Cinzel, serif', fontSize:'10px', letterSpacing:'1px', transition:'all 0.2s'}}
+                  onMouseEnter={e => e.currentTarget.style.color='#c9a96e'}
+                  onMouseLeave={e => e.currentTarget.style.color='#666'}>
+                  ✎ Düzenle
+                </button>
+              </div>
               <div style={{fontSize:'13px', color:'#555', fontFamily:'EB Garamond, serif', fontStyle:'italic', marginBottom:'24px'}}>{kullanici?.email}</div>
               <div className="stat-row" style={{display:'flex', gap:'12px', flexWrap:'wrap'}}>
                 <div className="stat-box">
@@ -176,8 +181,7 @@ export default function Profil() {
         ) : (
           <div className="karakter-grid" style={{display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:'24px'}}>
             {karakterler.map((k, i) => (
-              <div key={k.id} className="card-hover card-appear"
-                onClick={() => router.push(`/karakter/${k.id}`)}
+              <div key={k.id} className="card-hover card-appear" onClick={() => router.push(`/karakter/${k.id}`)}
                 style={{animationDelay:`${i*0.08}s`, background:'linear-gradient(145deg, #12101a, #1a1228)', border:'1px solid rgba(201,169,110,0.15)', borderRadius:'12px', overflow:'hidden', cursor:'pointer', boxShadow:'0 8px 32px rgba(0,0,0,0.4)', position:'relative'}}>
                 <div style={{position:'absolute', left:0, top:0, bottom:0, width:'4px', background:'linear-gradient(to bottom, #7F77DD, #c9a96e)', opacity:0.6}}/>
                 <div style={{height:'200px', overflow:'hidden', position:'relative'}}>
@@ -207,3 +211,4 @@ export default function Profil() {
     </main>
   )
 }
+``
