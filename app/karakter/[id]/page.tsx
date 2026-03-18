@@ -31,6 +31,7 @@ export default function KarakterDetay() {
   const [etiketler, setEtiketler] = useState([])
   const [paylasMenuAcik, setPaylasMenuAcik] = useState(false)
   const [kopyalandi, setKopyalandi] = useState(false)
+  const [benzerKarakterler, setBenzerKarakterler] = useState([])
 
   useEffect(() => {
     if (!id) return
@@ -56,6 +57,23 @@ export default function KarakterDetay() {
         setDuzenleAdi(data.karakter_adi)
         setDuzenleKitap(data.kitap_adi)
         setDuzenleAciklama(data.aciklama || '')
+        // Aynı kitaptan benzer karakterleri getir
+        supabase.from('karakterler').select('*, begeniler(count)')
+          .eq('kitap_adi', data.kitap_adi)
+          .neq('id', id)
+          .limit(4)
+          .then(({ data: benzer }) => {
+            if (benzer && benzer.length > 0) {
+              setBenzerKarakterler(benzer)
+            } else {
+              // Kitapta başka karakter yoksa son eklenenlerden getir
+              supabase.from('karakterler').select('*, begeniler(count)')
+                .neq('id', id)
+                .order('created_at', { ascending: false })
+                .limit(4)
+                .then(({ data: son }) => { if (son) setBenzerKarakterler(son) })
+            }
+          })
       }
       setYukleniyor(false)
     })
@@ -78,14 +96,12 @@ export default function KarakterDetay() {
   const paylasMetni = karakter ? `${karakter.karakter_adi} - ${karakter.kitap_adi} karakterini CharFaces'te keşfet! 📖✨` : ''
 
   function twitterPaylas() {
-    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(paylasMetni)}&url=${encodeURIComponent(karakterUrl)}`
-    window.open(url, '_blank')
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(paylasMetni)}&url=${encodeURIComponent(karakterUrl)}`, '_blank')
     setPaylasMenuAcik(false)
   }
 
   function whatsappPaylas() {
-    const url = `https://wa.me/?text=${encodeURIComponent(paylasMetni + ' ' + karakterUrl)}`
-    window.open(url, '_blank')
+    window.open(`https://wa.me/?text=${encodeURIComponent(paylasMetni + ' ' + karakterUrl)}`, '_blank')
     setPaylasMenuAcik(false)
   }
 
@@ -113,11 +129,8 @@ export default function KarakterDetay() {
       await supabase.from('begeniler').insert({ karakter_id: id, kullanici_id: kullanici.id })
       setBegendi(true); setBegeniSayisi(prev => prev + 1)
       if (karakter.kullanici_id !== kullanici.id) {
-        fetch('/api/bildirim', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ kullanici_id: karakter.kullanici_id, gonderen_id: kullanici.id, tip: 'begeni', karakter_id: id })
-        })
+        fetch('/api/bildirim', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kullanici_id: karakter.kullanici_id, gonderen_id: kullanici.id, tip: 'begeni', karakter_id: id }) })
       }
     }
   }
@@ -136,17 +149,13 @@ export default function KarakterDetay() {
     if (!kullanici) { router.push('/giris'); return }
     if (!yeniYorum.trim()) return
     const { data, error } = await supabase.from('yorumlar').insert({
-      karakter_id: id, kullanici_id: kullanici.id,
-      kullanici_email: kullanici.email, yorum: yeniYorum
+      karakter_id: id, kullanici_id: kullanici.id, kullanici_email: kullanici.email, yorum: yeniYorum
     }).select().single()
     if (!error && data) {
       setYorumlar(prev => [...prev, data]); setYeniYorum('')
       if (karakter.kullanici_id !== kullanici.id) {
-        fetch('/api/bildirim', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ kullanici_id: karakter.kullanici_id, gonderen_id: kullanici.id, tip: 'yorum', karakter_id: id })
-        })
+        fetch('/api/bildirim', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kullanici_id: karakter.kullanici_id, gonderen_id: kullanici.id, tip: 'yorum', karakter_id: id }) })
       }
     }
   }
@@ -226,6 +235,8 @@ export default function KarakterDetay() {
         .paylas-menu { position:absolute; top:100%; left:0; background:linear-gradient(145deg,#12101a,#1a1228); border:1px solid rgba(201,169,110,0.2); border-radius:10px; padding:8px; min-width:180px; z-index:9999; box-shadow:0 10px 40px rgba(0,0,0,0.8); margin-top:8px; }
         .paylas-item { display:flex; align-items:center; gap:10px; padding:10px 14px; border-radius:6px; cursor:pointer; transition:background 0.2s; font-family:'EB Garamond',serif; font-size:14px; color:#bbb; }
         .paylas-item:hover { background:rgba(201,169,110,0.08); color:white; }
+        .benzer-kart { background:linear-gradient(145deg,#12101a,#1a1228); border:1px solid rgba(201,169,110,0.1); border-radius:10px; overflow:hidden; cursor:pointer; transition:all 0.3s ease; position:relative; }
+        .benzer-kart:hover { border-color:rgba(201,169,110,0.3); transform:translateY(-4px); box-shadow:0 8px 24px rgba(0,0,0,0.4); }
       `}</style>
 
       {/* RAPOR MODAL */}
@@ -255,7 +266,7 @@ export default function KarakterDetay() {
                   style={{width:'100%', padding:'12px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(201,169,110,0.15)', borderRadius:'8px', color:'white', fontSize:'13px', fontFamily:'EB Garamond, serif', resize:'none', minHeight:'80px', boxSizing:'border-box', marginTop:'8px', marginBottom:'16px', outline:'none'}}/>
                 <div style={{display:'flex', gap:'10px'}}>
                   <button onClick={raporGonder} disabled={!raporSebep}
-                    style={{flex:1, padding:'12px', background: raporSebep ? 'rgba(192,57,43,0.8)' : 'rgba(192,57,43,0.3)', border:'none', borderRadius:'8px', color:'white', cursor: raporSebep ? 'pointer' : 'not-allowed', fontFamily:'Cinzel, serif', fontSize:'12px', letterSpacing:'1px', transition:'all 0.3s'}}>
+                    style={{flex:1, padding:'12px', background: raporSebep ? 'rgba(192,57,43,0.8)' : 'rgba(192,57,43,0.3)', border:'none', borderRadius:'8px', color:'white', cursor: raporSebep ? 'pointer' : 'not-allowed', fontFamily:'Cinzel, serif', fontSize:'12px', letterSpacing:'1px'}}>
                     RAPORLA
                   </button>
                   <button onClick={() => setRaporModalAcik(false)}
@@ -315,16 +326,13 @@ export default function KarakterDetay() {
                   {karakter.karakter_adi}
                 </h1>
                 <div style={{fontSize:'14px', color:'#c9a96e', fontFamily:'EB Garamond, serif', fontStyle:'italic', marginBottom:'12px'}}>{karakter.kitap_adi}</div>
-
                 {etiketler.length > 0 && (
                   <div style={{display:'flex', flexWrap:'wrap', gap:'8px', marginBottom:'16px'}}>
                     {etiketler.map(e => (
-                      <span key={e} className="etiket-chip"
-                        onClick={() => router.push(`/?etiket=${encodeURIComponent(e)}`)}>{e}</span>
+                      <span key={e} className="etiket-chip" onClick={() => router.push(`/?etiket=${encodeURIComponent(e)}`)}>{e}</span>
                     ))}
                   </div>
                 )}
-
                 {karakter.aciklama && <p style={{fontSize:'16px', color:'#aaa', lineHeight:'1.8', fontFamily:'EB Garamond, serif'}}>{karakter.aciklama}</p>}
               </div>
 
@@ -369,23 +377,15 @@ export default function KarakterDetay() {
                     </div>
                   )}
 
-                  {/* PAYLAŞ BUTONU */}
                   <div style={{position:'relative'}}>
-                    <button className="btn-ghost" onClick={nativePaylas}
-                      style={{display:'flex', alignItems:'center', gap:'6px'}}>
+                    <button className="btn-ghost" onClick={nativePaylas} style={{display:'flex', alignItems:'center', gap:'6px'}}>
                       {kopyalandi ? '✓ Kopyalandı!' : '🔗 Paylaş'}
                     </button>
                     {paylasMenuAcik && (
                       <div className="paylas-menu">
-                        <div className="paylas-item" onClick={twitterPaylas}>
-                          <span style={{fontSize:'16px'}}>🐦</span> Twitter / X
-                        </div>
-                        <div className="paylas-item" onClick={whatsappPaylas}>
-                          <span style={{fontSize:'16px'}}>💬</span> WhatsApp
-                        </div>
-                        <div className="paylas-item" onClick={linkKopyala}>
-                          <span style={{fontSize:'16px'}}>🔗</span> Linki Kopyala
-                        </div>
+                        <div className="paylas-item" onClick={twitterPaylas}><span style={{fontSize:'16px'}}>🐦</span> Twitter / X</div>
+                        <div className="paylas-item" onClick={whatsappPaylas}><span style={{fontSize:'16px'}}>💬</span> WhatsApp</div>
+                        <div className="paylas-item" onClick={linkKopyala}><span style={{fontSize:'16px'}}>🔗</span> Linki Kopyala</div>
                       </div>
                     )}
                   </div>
@@ -426,7 +426,8 @@ export default function KarakterDetay() {
           )}
         </div>
 
-        <div>
+        {/* YORUMLAR */}
+        <div style={{marginBottom:'48px'}}>
           <div style={{display:'flex', alignItems:'center', gap:'16px', marginBottom:'24px'}}>
             <div style={{width:'30px', height:'1px', background:'rgba(201,169,110,0.4)'}}/>
             <h2 style={{fontSize:'11px', fontWeight:'600', color:'#c9a96e', letterSpacing:'3px', fontFamily:'Cinzel, serif'}}>YORUMLAR ({yorumlar.length})</h2>
@@ -469,6 +470,40 @@ export default function KarakterDetay() {
             ))
           )}
         </div>
+
+        {/* BENZERLERİ DE BEĞENEBİLİRSİN */}
+        {benzerKarakterler.length > 0 && (
+          <div>
+            <div style={{display:'flex', alignItems:'center', gap:'16px', marginBottom:'24px'}}>
+              <div style={{width:'30px', height:'1px', background:'rgba(201,169,110,0.4)'}}/>
+              <h2 style={{fontSize:'11px', fontWeight:'600', color:'#c9a96e', letterSpacing:'3px', fontFamily:'Cinzel, serif'}}>
+                {benzerKarakterler[0]?.kitap_adi === karakter.kitap_adi ? `${karakter.kitap_adi} KİTABINDAN` : 'BUNLARI DA BEĞENEBİLİRSİN'}
+              </h2>
+              <div style={{flex:1, height:'1px', background:'rgba(201,169,110,0.2)'}}/>
+            </div>
+            <div style={{display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:'16px'}}>
+              {benzerKarakterler.map(k => (
+                <div key={k.id} className="benzer-kart" onClick={() => router.push(`/karakter/${k.id}`)}>
+                  <div style={{position:'absolute', left:0, top:0, bottom:0, width:'3px', background:'linear-gradient(to bottom, #7F77DD, #c9a96e)', opacity:0.5}}/>
+                  <div style={{display:'flex', gap:'12px', padding:'14px 14px 14px 18px'}}>
+                    <div style={{width:'60px', height:'80px', borderRadius:'6px', overflow:'hidden', flexShrink:0, background:'rgba(127,119,221,0.1)'}}>
+                      {k.gorsel_url ? (
+                        <img src={k.gorsel_url} style={{width:'100%', height:'100%', objectFit:'cover'}}/>
+                      ) : (
+                        <div style={{width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'24px'}}>📖</div>
+                      )}
+                    </div>
+                    <div style={{flex:1, minWidth:0}}>
+                      <div style={{fontSize:'13px', fontFamily:'Cinzel, serif', fontWeight:'600', marginBottom:'4px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{k.karakter_adi}</div>
+                      <div style={{fontSize:'11px', color:'#c9a96e', fontFamily:'EB Garamond, serif', fontStyle:'italic', marginBottom:'6px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{k.kitap_adi}</div>
+                      <div style={{fontSize:'12px', color:'#D4537E'}}>❤️ {k.begeniler?.[0]?.count || 0}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <footer style={{textAlign:'center', padding:'32px', borderTop:'1px solid rgba(201,169,110,0.1)', color:'#444', fontSize:'12px', fontFamily:'Cinzel, serif', letterSpacing:'2px'}}>
@@ -477,3 +512,4 @@ export default function KarakterDetay() {
     </main>
   )
 }
+``
