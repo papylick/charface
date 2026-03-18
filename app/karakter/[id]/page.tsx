@@ -24,6 +24,10 @@ export default function KarakterDetay() {
   const [koleksiyonlar, setKoleksiyonlar] = useState([])
   const [koleksiyonMenuAcik, setKoleksiyonMenuAcik] = useState(false)
   const [eklenenKoleksiyonlar, setEklenenKoleksiyonlar] = useState({})
+  const [raporModalAcik, setRaporModalAcik] = useState(false)
+  const [raporSebep, setRaporSebep] = useState('')
+  const [raporAciklama, setRaporAciklama] = useState('')
+  const [raporGonderildi, setRaporGonderildi] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -130,6 +134,26 @@ export default function KarakterDetay() {
     }
   }
 
+  async function raporGonder() {
+    if (!kullanici) { router.push('/giris'); return }
+    if (!raporSebep) return
+    const { error } = await supabase.from('raporlar').insert({
+      rapor_eden_id: kullanici.id,
+      karakter_id: id,
+      sebep: raporSebep,
+      aciklama: raporAciklama
+    })
+    if (!error) {
+      setRaporGonderildi(true)
+      setTimeout(() => {
+        setRaporModalAcik(false)
+        setRaporGonderildi(false)
+        setRaporSebep('')
+        setRaporAciklama('')
+      }, 2000)
+    }
+  }
+
   const benimKarakterim = kullanici?.id === karakter?.kullanici_id
 
   if (yukleniyor) return (
@@ -171,7 +195,61 @@ export default function KarakterDetay() {
         .koleksiyon-menu { position:absolute; top:100%; left:0; background:linear-gradient(145deg,#12101a,#1a1228); border:1px solid rgba(201,169,110,0.2); border-radius:10px; padding:8px; min-width:220px; z-index:9999; box-shadow:0 10px 40px rgba(0,0,0,0.8); margin-top:8px; }
         .koleksiyon-item { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:6px; cursor:pointer; transition:background 0.2s; font-family:'EB Garamond',serif; font-size:14px; color:#bbb; }
         .koleksiyon-item:hover { background:rgba(201,169,110,0.08); color:white; }
+        .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); backdropFilter:blur(4px); z-index:9999; display:flex; align-items:center; justifyContent:center; }
+        .modal { background:linear-gradient(145deg,#12101a,#1a1228); border:1px solid rgba(201,169,110,0.2); borderRadius:16px; padding:32px; width:90%; maxWidth:480px; }
+        .rapor-secim { display:flex; align-items:center; gap:10px; padding:12px 14px; border-radius:8px; cursor:pointer; border:1px solid rgba(255,255,255,0.05); marginBottom:8px; transition:all 0.2s; }
+        .rapor-secim:hover { background:rgba(201,169,110,0.06); border-color:rgba(201,169,110,0.2); }
+        .rapor-secim.secili { background:rgba(192,57,43,0.08); border-color:rgba(192,57,43,0.3); }
       `}</style>
+
+      {/* RAPOR MODAL */}
+      {raporModalAcik && (
+        <div style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', backdropFilter:'blur(4px)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center'}}
+          onClick={e => { if (e.target === e.currentTarget) setRaporModalAcik(false) }}>
+          <div style={{background:'linear-gradient(145deg,#12101a,#1a1228)', border:'1px solid rgba(201,169,110,0.2)', borderRadius:'16px', padding:'32px', width:'90%', maxWidth:'480px'}}>
+            {raporGonderildi ? (
+              <div style={{textAlign:'center', padding:'20px'}}>
+                <div style={{fontSize:'40px', marginBottom:'12px'}}>✅</div>
+                <div style={{fontFamily:'Cinzel, serif', color:'#c9a96e', letterSpacing:'1px'}}>Raporunuz alındı!</div>
+                <div style={{fontSize:'13px', color:'#666', fontFamily:'EB Garamond, serif', marginTop:'8px'}}>İnceleme ekibimiz değerlendirecek.</div>
+              </div>
+            ) : (
+              <>
+                <div style={{fontSize:'11px', color:'#c9a96e', letterSpacing:'3px', fontFamily:'Cinzel, serif', marginBottom:'20px'}}>⚠ KARAKTERI RAPORLA</div>
+
+                {['Uygunsuz içerik', 'Telif hakkı ihlali', 'Spam veya yanıltıcı', 'Nefret söylemi', 'Diğer'].map(sebep => (
+                  <div key={sebep}
+                    onClick={() => setRaporSebep(sebep)}
+                    style={{display:'flex', alignItems:'center', gap:'10px', padding:'12px 14px', borderRadius:'8px', cursor:'pointer', border:`1px solid ${raporSebep === sebep ? 'rgba(192,57,43,0.4)' : 'rgba(255,255,255,0.05)'}`, marginBottom:'8px', background: raporSebep === sebep ? 'rgba(192,57,43,0.08)' : 'transparent', transition:'all 0.2s'}}>
+                    <div style={{width:'16px', height:'16px', borderRadius:'50%', border:`2px solid ${raporSebep === sebep ? '#c0392b' : '#555'}`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}}>
+                      {raporSebep === sebep && <div style={{width:'8px', height:'8px', borderRadius:'50%', background:'#c0392b'}}/>}
+                    </div>
+                    <span style={{fontSize:'14px', color: raporSebep === sebep ? '#e74c3c' : '#aaa', fontFamily:'EB Garamond, serif'}}>{sebep}</span>
+                  </div>
+                ))}
+
+                <textarea
+                  placeholder="Ek açıklama (opsiyonel)..."
+                  value={raporAciklama}
+                  onChange={e => setRaporAciklama(e.target.value)}
+                  style={{width:'100%', padding:'12px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(201,169,110,0.15)', borderRadius:'8px', color:'white', fontSize:'13px', fontFamily:'EB Garamond, serif', resize:'none', minHeight:'80px', boxSizing:'border-box', marginTop:'8px', marginBottom:'16px', outline:'none'}}
+                />
+
+                <div style={{display:'flex', gap:'10px'}}>
+                  <button onClick={raporGonder} disabled={!raporSebep}
+                    style={{flex:1, padding:'12px', background: raporSebep ? 'rgba(192,57,43,0.8)' : 'rgba(192,57,43,0.3)', border:'none', borderRadius:'8px', color:'white', cursor: raporSebep ? 'pointer' : 'not-allowed', fontFamily:'Cinzel, serif', fontSize:'12px', letterSpacing:'1px', transition:'all 0.3s'}}>
+                    RAPORLA
+                  </button>
+                  <button onClick={() => setRaporModalAcik(false)}
+                    style={{padding:'12px 20px', background:'transparent', border:'1px solid rgba(201,169,110,0.3)', borderRadius:'8px', color:'#c9a96e', cursor:'pointer', fontFamily:'Cinzel, serif', fontSize:'12px', letterSpacing:'1px'}}>
+                    İptal
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       <nav style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'20px 48px', borderBottom:'1px solid rgba(201,169,110,0.2)', background:'rgba(10,10,15,0.9)', backdropFilter:'blur(10px)', position:'sticky', top:0, zIndex:100, boxShadow:'0 4px 30px rgba(0,0,0,0.5)'}}>
         <a href="/" style={{fontSize:'24px', fontFamily:'Cinzel, serif', fontWeight:'700', letterSpacing:'2px', textDecoration:'none', color:'white'}}>
@@ -277,7 +355,18 @@ export default function KarakterDetay() {
                       )}
                     </>
                   )}
+
+                  {/* 🚩 RAPOR BUTONU */}
+                  {kullanici && !benimKarakterim && (
+                    <button onClick={() => setRaporModalAcik(true)}
+                      style={{background:'transparent', border:'none', color:'#555', cursor:'pointer', fontSize:'12px', fontFamily:'Cinzel, serif', letterSpacing:'1px', padding:'10px', transition:'color 0.2s'}}
+                      onMouseEnter={e => e.target.style.color='#c0392b'}
+                      onMouseLeave={e => e.target.style.color='#555'}>
+                      🚩 Raporla
+                    </button>
+                  )}
                 </div>
+
                 <button onClick={() => router.push(`/profil/${karakter.kullanici_id}`)}
                   style={{background:'transparent', border:'none', color:'#555', cursor:'pointer', fontSize:'12px', fontFamily:'Cinzel, serif', letterSpacing:'1px', transition:'color 0.2s'}}
                   onMouseEnter={e => e.target.style.color='#c9a96e'}
