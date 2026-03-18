@@ -14,6 +14,8 @@ export default function Profil() {
   const [takipciSayisi, setTakipciSayisi] = useState(0)
   const [takipEdilenSayisi, setTakipEdilenSayisi] = useState(0)
   const [okunmamisMesaj, setOkunmamisMesaj] = useState(0)
+  const [rozetler, setRozetler] = useState([])
+  const [yeniRozet, setYeniRozet] = useState(null)
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
@@ -41,6 +43,23 @@ export default function Profil() {
         .from('mesajlar').select('*', { count: 'exact', head: true })
         .eq('alici_id', data.user.id).eq('okundu', false)
       setOkunmamisMesaj(okunmamis || 0)
+
+      // Rozet kontrolü
+      const rozetRes = await fetch('/api/rozet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kullanici_id: data.user.id })
+      })
+      const rozetData = await rozetRes.json()
+      if (rozetData.yeniRozetler?.length > 0) {
+        setYeniRozet(rozetData.yeniRozetler[0])
+        setTimeout(() => setYeniRozet(null), 4000)
+      }
+
+      // Mevcut rozetleri getir
+      const rozetlerRes = await fetch(`/api/rozet?kullanici_id=${data.user.id}`)
+      const rozetlerData = await rozetlerRes.json()
+      setRozetler(rozetlerData.rozetler || [])
 
       setYukleniyor(false)
     })
@@ -74,7 +93,11 @@ export default function Profil() {
         .btn-secondary:hover { background:rgba(201,169,110,0.1); transform:translateY(-2px); }
         .stat-box { text-align:center; padding:16px 24px; background:rgba(255,255,255,0.02); border:1px solid rgba(201,169,110,0.1); border-radius:8px; transition:all 0.3s ease; }
         .stat-box:hover { background:rgba(201,169,110,0.05); border-color:rgba(201,169,110,0.3); }
-        .avatar-ring { width:90px; height:90px; border-radius:50%; overflow:hidden; border:3px solid rgba(201,169,110,0.4); box-shadow:0 0 30px rgba(127,119,221,0.4); flexShrink:0; background:linear-gradient(135deg,#7F77DD,#c9a96e); display:flex; align-items:center; justify-content:center; }
+        .rozet-kart { display:flex; flex-direction:column; align-items:center; gap:6px; padding:14px 10px; background:rgba(255,255,255,0.02); border:1px solid rgba(201,169,110,0.15); border-radius:10px; transition:all 0.3s ease; cursor:default; }
+        .rozet-kart:hover { background:rgba(201,169,110,0.06); border-color:rgba(201,169,110,0.3); transform:translateY(-2px); }
+        .rozet-kart.kilitli { opacity:0.3; filter:grayscale(1); }
+        @keyframes rozetGel { 0%{opacity:0;transform:translateY(-20px) scale(0.8)} 20%{opacity:1;transform:translateY(0) scale(1.1)} 30%{transform:scale(1)} 80%{opacity:1} 100%{opacity:0;transform:translateY(-10px)} }
+        .rozet-bildirim { animation:rozetGel 4s ease forwards; }
         @media (max-width:768px) {
           .profil-kart { flex-direction:column !important; text-align:center; }
           .stat-row { justify-content:center !important; }
@@ -86,6 +109,16 @@ export default function Profil() {
           .karakter-grid { grid-template-columns:repeat(1,1fr) !important; }
         }
       `}</style>
+
+      {/* YENİ ROZET BİLDİRİMİ */}
+      {yeniRozet && (
+        <div className="rozet-bildirim" style={{position:'fixed', top:'80px', left:'50%', transform:'translateX(-50%)', zIndex:9999, background:'linear-gradient(145deg,#12101a,#1a1228)', border:'1px solid rgba(201,169,110,0.4)', borderRadius:'16px', padding:'20px 32px', textAlign:'center', boxShadow:'0 10px 40px rgba(0,0,0,0.6)', minWidth:'280px'}}>
+          <div style={{fontSize:'40px', marginBottom:'8px'}}>{yeniRozet.emoji}</div>
+          <div style={{fontSize:'11px', color:'#c9a96e', letterSpacing:'3px', fontFamily:'Cinzel, serif', marginBottom:'4px'}}>YENİ ROZET KAZANILDI!</div>
+          <div style={{fontSize:'16px', fontFamily:'Cinzel, serif', fontWeight:'600', marginBottom:'4px'}}>{yeniRozet.ad}</div>
+          <div style={{fontSize:'13px', color:'#888', fontFamily:'EB Garamond, serif', fontStyle:'italic'}}>{yeniRozet.aciklama}</div>
+        </div>
+      )}
 
       <nav style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'20px 48px', borderBottom:'1px solid rgba(201,169,110,0.2)', background:'rgba(10,10,15,0.9)', backdropFilter:'blur(10px)', position:'sticky', top:0, zIndex:100, boxShadow:'0 4px 30px rgba(0,0,0,0.5)'}} className="nav-padding">
         <a href="/" style={{fontSize:'24px', fontFamily:'Cinzel, serif', fontWeight:'700', letterSpacing:'2px', textDecoration:'none', color:'white'}}>
@@ -114,21 +147,16 @@ export default function Profil() {
       </nav>
 
       <div className="main-padding" style={{maxWidth:'1000px', margin:'0 auto', padding:'48px 32px'}}>
-        <div style={{background:'linear-gradient(145deg, #12101a, #1a1228)', border:'1px solid rgba(201,169,110,0.15)', borderRadius:'16px', padding:'40px', marginBottom:'48px', boxShadow:'0 20px 60px rgba(0,0,0,0.4)', position:'relative', overflow:'hidden'}}>
+        <div style={{background:'linear-gradient(145deg, #12101a, #1a1228)', border:'1px solid rgba(201,169,110,0.15)', borderRadius:'16px', padding:'40px', marginBottom:'32px', boxShadow:'0 20px 60px rgba(0,0,0,0.4)', position:'relative', overflow:'hidden'}}>
           <div style={{position:'absolute', left:0, top:0, bottom:0, width:'4px', background:'linear-gradient(to bottom, #7F77DD, #c9a96e)', opacity:0.6}}/>
 
           <div className="profil-kart" style={{display:'flex', alignItems:'center', gap:'32px'}}>
-
-            {/* AVATAR */}
             <div style={{width:'90px', height:'90px', borderRadius:'50%', overflow:'hidden', border:'3px solid rgba(201,169,110,0.4)', boxShadow:'0 0 30px rgba(127,119,221,0.4)', flexShrink:0, background:'linear-gradient(135deg, #7F77DD, #c9a96e)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer'}}
               onClick={() => router.push('/ayarlar')}>
               {profil?.avatar_url ? (
-                <img src={profil.avatar_url} style={{width:'100%', height:'100%', objectFit:'cover'}}
-                  onError={e => e.currentTarget.style.display='none'}/>
+                <img src={profil.avatar_url} style={{width:'100%', height:'100%', objectFit:'cover'}} onError={e => e.currentTarget.style.display='none'}/>
               ) : (
-                <span style={{fontSize:'36px', fontWeight:'700', fontFamily:'Cinzel, serif', color:'white'}}>
-                  {goruntulenenAd?.[0]?.toUpperCase()}
-                </span>
+                <span style={{fontSize:'36px', fontWeight:'700', fontFamily:'Cinzel, serif', color:'white'}}>{goruntulenenAd?.[0]?.toUpperCase()}</span>
               )}
             </div>
 
@@ -162,6 +190,41 @@ export default function Profil() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* ROZETLER */}
+        <div style={{background:'linear-gradient(145deg, #12101a, #1a1228)', border:'1px solid rgba(201,169,110,0.15)', borderRadius:'16px', padding:'28px 32px', marginBottom:'32px', boxShadow:'0 8px 32px rgba(0,0,0,0.4)', position:'relative', overflow:'hidden'}}>
+          <div style={{position:'absolute', left:0, top:0, bottom:0, width:'4px', background:'linear-gradient(to bottom, #c9a96e, #7F77DD)', opacity:0.6}}/>
+          <div style={{display:'flex', alignItems:'center', gap:'16px', marginBottom:'20px'}}>
+            <div style={{width:'20px', height:'1px', background:'rgba(201,169,110,0.4)'}}/>
+            <h2 style={{fontSize:'11px', fontWeight:'600', color:'#c9a96e', letterSpacing:'3px', fontFamily:'Cinzel, serif'}}>
+              ROZETLER ({rozetler.length}/8)
+            </h2>
+            <div style={{flex:1, height:'1px', background:'rgba(201,169,110,0.2)'}}/>
+          </div>
+
+          <div style={{display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:'12px'}}>
+            {[
+              { tip:'ilk_adim', emoji:'🌱', ad:'İlk Adım', aciklama:'İlk karakterini ekle' },
+              { tip:'hikaye_anlatici', emoji:'📚', ad:'Hikaye Anlatıcı', aciklama:'5 karakter ekle' },
+              { tip:'yildiz', emoji:'🌟', ad:'Yıldız', aciklama:'10 karakter ekle' },
+              { tip:'sevilen', emoji:'❤️', ad:'Sevilen', aciklama:'10 beğeni al' },
+              { tip:'populer', emoji:'🔥', ad:'Popüler', aciklama:'50 beğeni al' },
+              { tip:'efsane', emoji:'💎', ad:'Efsane', aciklama:'100 beğeni al' },
+              { tip:'sosyal', emoji:'💬', ad:'Sosyal', aciklama:'10 yorum yap' },
+              { tip:'takipci_ustasi', emoji:'👥', ad:'Takipçi Ustası', aciklama:'10 takipçi kazan' },
+            ].map(r => {
+              const kazanildi = rozetler.find(x => x.tip === r.tip)
+              return (
+                <div key={r.tip} className={`rozet-kart ${kazanildi ? '' : 'kilitli'}`}
+                  title={kazanildi ? `${r.ad} - ${new Date(kazanildi.kazanildi).toLocaleDateString('tr-TR')}` : r.aciklama}>
+                  <div style={{fontSize:'28px'}}>{r.emoji}</div>
+                  <div style={{fontSize:'10px', fontFamily:'Cinzel, serif', color: kazanildi ? '#c9a96e' : '#555', letterSpacing:'0.5px', textAlign:'center'}}>{r.ad}</div>
+                  {!kazanildi && <div style={{fontSize:'9px', color:'#444', fontFamily:'EB Garamond, serif', fontStyle:'italic', textAlign:'center'}}>{r.aciklama}</div>}
+                </div>
+              )
+            })}
           </div>
         </div>
 
