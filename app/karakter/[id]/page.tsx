@@ -32,6 +32,8 @@ export default function KarakterDetay() {
   const [paylasMenuAcik, setPaylasMenuAcik] = useState(false)
   const [kopyalandi, setKopyalandi] = useState(false)
   const [benzerKarakterler, setBenzerKarakterler] = useState([])
+  const [yorumBegenileri, setYorumBegenileri] = useState({})
+  const [yorumBegeniSayilari, setYorumBegeniSayilari] = useState({})
 
   useEffect(() => {
     if (!id) return
@@ -57,28 +59,33 @@ export default function KarakterDetay() {
         setDuzenleAdi(data.karakter_adi)
         setDuzenleKitap(data.kitap_adi)
         setDuzenleAciklama(data.aciklama || '')
-        // Aynı kitaptan benzer karakterleri getir
         supabase.from('karakterler').select('*, begeniler(count)')
-          .eq('kitap_adi', data.kitap_adi)
-          .neq('id', id)
-          .limit(4)
+          .eq('kitap_adi', data.kitap_adi).neq('id', id).limit(4)
           .then(({ data: benzer }) => {
-            if (benzer && benzer.length > 0) {
-              setBenzerKarakterler(benzer)
-            } else {
-              // Kitapta başka karakter yoksa son eklenenlerden getir
-              supabase.from('karakterler').select('*, begeniler(count)')
-                .neq('id', id)
-                .order('created_at', { ascending: false })
-                .limit(4)
-                .then(({ data: son }) => { if (son) setBenzerKarakterler(son) })
-            }
+            if (benzer && benzer.length > 0) setBenzerKarakterler(benzer)
+            else supabase.from('karakterler').select('*, begeniler(count)').neq('id', id)
+              .order('created_at', { ascending: false }).limit(4)
+              .then(({ data: son }) => { if (son) setBenzerKarakterler(son) })
           })
       }
       setYukleniyor(false)
     })
     supabase.from('yorumlar').select('*').eq('karakter_id', id).order('created_at', { ascending: true }).then(({ data }) => {
-      if (data) setYorumlar(data)
+      if (data) {
+        setYorumlar(data)
+        // Yorum beğeni sayılarını getir
+        if (data.length > 0) {
+          const yorumIds = data.map(y => y.id)
+          supabase.from('yorum_begenileri').select('yorum_id').in('yorum_id', yorumIds).then(({ data: begData }) => {
+            if (begData) {
+              const sayilar = {}
+              yorumIds.forEach(yid => sayilar[yid] = 0)
+              begData.forEach(b => sayilar[b.yorum_id] = (sayilar[b.yorum_id] || 0) + 1)
+              setYorumBegeniSayilari(sayilar)
+            }
+          })
+        }
+      }
     })
     supabase.from('etiketler').select('etiket').eq('karakter_id', id).then(({ data }) => {
       if (data) setEtiketler(data.map(e => e.etiket))
@@ -90,7 +97,28 @@ export default function KarakterDetay() {
     supabase.from('begeniler').select('id').eq('karakter_id', id).eq('kullanici_id', kullanici.id).then(({ data }) => {
       if (data && data.length > 0) setBegendi(true)
     })
+    // Kullanıcının yorum beğenilerini getir
+    supabase.from('yorum_begenileri').select('yorum_id').eq('kullanici_id', kullanici.id).then(({ data }) => {
+      if (data) {
+        const obj = {}
+        data.forEach(b => obj[b.yorum_id] = true)
+        setYorumBegenileri(obj)
+      }
+    })
   }, [kullanici, id])
+
+  async function yorumBegen(yorumId) {
+    if (!kullanici) { router.push('/giris'); return }
+    if (yorumBegenileri[yorumId]) {
+      await supabase.from('yorum_begenileri').delete().eq('yorum_id', yorumId).eq('kullanici_id', kullanici.id)
+      setYorumBegenileri(prev => ({ ...prev, [yorumId]: false }))
+      setYorumBegeniSayilari(prev => ({ ...prev, [yorumId]: Math.max(0, (prev[yorumId] || 1) - 1) }))
+    } else {
+      await supabase.from('yorum_begenileri').insert({ yorum_id: yorumId, kullanici_id: kullanici.id })
+      setYorumBegenileri(prev => ({ ...prev, [yorumId]: true }))
+      setYorumBegeniSayilari(prev => ({ ...prev, [yorumId]: (prev[yorumId] || 0) + 1 }))
+    }
+  }
 
   const karakterUrl = typeof window !== 'undefined' ? window.location.href : ''
   const paylasMetni = karakter ? `${karakter.karakter_adi} - ${karakter.kitap_adi} karakterini CharFaces'te keşfet! 📖✨` : ''
@@ -113,11 +141,8 @@ export default function KarakterDetay() {
   }
 
   function nativePaylas() {
-    if (navigator.share) {
-      navigator.share({ title: paylasMetni, url: karakterUrl })
-    } else {
-      setPaylasMenuAcik(prev => !prev)
-    }
+    if (navigator.share) navigator.share({ title: paylasMetni, url: karakterUrl })
+    else setPaylasMenuAcik(prev => !prev)
   }
 
   async function toggleBegeni() {
@@ -152,7 +177,9 @@ export default function KarakterDetay() {
       karakter_id: id, kullanici_id: kullanici.id, kullanici_email: kullanici.email, yorum: yeniYorum
     }).select().single()
     if (!error && data) {
-      setYorumlar(prev => [...prev, data]); setYeniYorum('')
+      setYorumlar(prev => [...prev, data])
+      setYorumBegeniSayilari(prev => ({ ...prev, [data.id]: 0 }))
+      setYeniYorum('')
       if (karakter.kullanici_id !== kullanici.id) {
         fetch('/api/bildirim', { method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ kullanici_id: karakter.kullanici_id, gonderen_id: kullanici.id, tip: 'yorum', karakter_id: id }) })
@@ -224,7 +251,7 @@ export default function KarakterDetay() {
         .btn-danger:hover { background:rgba(192,57,43,0.1); }
         .gonder-btn { padding:14px 24px; background:linear-gradient(135deg,#7F77DD,#9d77dd); border:none; border-radius:8px; color:white; cursor:pointer; font-family:'Cinzel',serif; font-size:12px; letter-spacing:1px; transition:all 0.3s ease; box-shadow:0 4px 15px rgba(127,119,221,0.3); }
         .gonder-btn:hover { transform:translateY(-2px); }
-        .yorum-kart { background:linear-gradient(145deg,#12101a,#1a1228); border:1px solid rgba(201,169,110,0.1); border-radius:10px; padding:16px 18px 16px 22px; margin-bottom:12px; position:relative; transition:border-color 0.3s ease; }
+        .yorum-kart { background:linear-gradient(145deg,#12101a,#1a1228); border:1px solid rgba(201,169,110,0.1); border-radius:10px; padding:16px 18px 12px 22px; margin-bottom:12px; position:relative; transition:border-color 0.3s ease; }
         .yorum-kart:hover { border-color:rgba(201,169,110,0.25); }
         .yorum-kart::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:linear-gradient(to bottom,#7F77DD,#c9a96e); opacity:0.5; }
         .koleksiyon-menu { position:absolute; top:100%; left:0; background:linear-gradient(145deg,#12101a,#1a1228); border:1px solid rgba(201,169,110,0.2); border-radius:10px; padding:8px; min-width:220px; z-index:9999; box-shadow:0 10px 40px rgba(0,0,0,0.8); margin-top:8px; }
@@ -237,6 +264,8 @@ export default function KarakterDetay() {
         .paylas-item:hover { background:rgba(201,169,110,0.08); color:white; }
         .benzer-kart { background:linear-gradient(145deg,#12101a,#1a1228); border:1px solid rgba(201,169,110,0.1); border-radius:10px; overflow:hidden; cursor:pointer; transition:all 0.3s ease; position:relative; }
         .benzer-kart:hover { border-color:rgba(201,169,110,0.3); transform:translateY(-4px); box-shadow:0 8px 24px rgba(0,0,0,0.4); }
+        .yorum-begen-btn { background:transparent; border:none; cursor:pointer; display:flex; align-items:center; gap:4px; padding:4px 8px; border-radius:4px; transition:all 0.2s; }
+        .yorum-begen-btn:hover { background:rgba(212,83,126,0.1); }
       `}</style>
 
       {/* RAPOR MODAL */}
@@ -297,7 +326,6 @@ export default function KarakterDetay() {
       </nav>
 
       <div style={{maxWidth:'780px', margin:'0 auto', padding:'48px 32px'}}>
-
         {karakter.gorsel_url && (
           <div style={{position:'relative', marginBottom:'32px', borderRadius:'16px', overflow:'hidden', boxShadow:'0 20px 60px rgba(0,0,0,0.6)', border:'1px solid rgba(201,169,110,0.15)'}}>
             <img src={karakter.gorsel_url} style={{width:'100%', maxHeight:'480px', objectFit:'cover', display:'block'}}/>
@@ -325,10 +353,10 @@ export default function KarakterDetay() {
                 <h1 style={{fontSize:'36px', fontWeight:'700', fontFamily:'Cinzel, serif', letterSpacing:'2px', marginBottom:'8px', textShadow:'0 0 30px rgba(127,119,221,0.3)'}}>
                   {karakter.karakter_adi}
                 </h1>
-             <div onClick={() => router.push(`/kitap/${encodeURIComponent(karakter.kitap_adi)}`)}
-  style={{fontSize:'14px', color:'#c9a96e', fontFamily:'EB Garamond, serif', fontStyle:'italic', marginBottom:'12px', cursor:'pointer', textDecoration:'underline', textDecorationColor:'rgba(201,169,110,0.3)'}}>
-  {karakter.kitap_adi}
-</div>
+                <div onClick={() => router.push(`/kitap/${encodeURIComponent(karakter.kitap_adi)}`)}
+                  style={{fontSize:'14px', color:'#c9a96e', fontFamily:'EB Garamond, serif', fontStyle:'italic', marginBottom:'12px', cursor:'pointer', textDecoration:'underline', textDecorationColor:'rgba(201,169,110,0.3)'}}>
+                  {karakter.kitap_adi}
+                </div>
                 {etiketler.length > 0 && (
                   <div style={{display:'flex', flexWrap:'wrap', gap:'8px', marginBottom:'16px'}}>
                     {etiketler.map(e => (
@@ -355,26 +383,20 @@ export default function KarakterDetay() {
 
                   {kullanici && (
                     <div style={{position:'relative'}}>
-                      <button className="btn-ghost" onClick={() => setKoleksiyonMenuAcik(prev => !prev)}>
-                        📚 Koleksiyona Ekle
-                      </button>
+                      <button className="btn-ghost" onClick={() => setKoleksiyonMenuAcik(prev => !prev)}>📚 Koleksiyona Ekle</button>
                       {koleksiyonMenuAcik && (
                         <div className="koleksiyon-menu">
                           {koleksiyonlar.length === 0 ? (
                             <div style={{padding:'12px', textAlign:'center'}}>
                               <div style={{fontSize:'13px', color:'#555', fontFamily:'EB Garamond, serif', fontStyle:'italic', marginBottom:'8px'}}>Liste yok</div>
-                              <button onClick={() => router.push('/koleksiyonlar')} style={{background:'linear-gradient(135deg,#7F77DD,#9d77dd)', border:'none', color:'white', padding:'8px 14px', borderRadius:'6px', cursor:'pointer', fontFamily:'Cinzel, serif', fontSize:'11px'}}>
-                                Liste Oluştur
-                              </button>
+                              <button onClick={() => router.push('/koleksiyonlar')} style={{background:'linear-gradient(135deg,#7F77DD,#9d77dd)', border:'none', color:'white', padding:'8px 14px', borderRadius:'6px', cursor:'pointer', fontFamily:'Cinzel, serif', fontSize:'11px'}}>Liste Oluştur</button>
                             </div>
-                          ) : (
-                            koleksiyonlar.map(k => (
-                              <div key={k.id} className="koleksiyon-item" onClick={() => koleksiyonaToggle(k.id)}>
-                                <span style={{fontSize:'16px'}}>{eklenenKoleksiyonlar[k.id] ? '✅' : '○'}</span>
-                                <span>{k.ad}</span>
-                              </div>
-                            ))
-                          )}
+                          ) : koleksiyonlar.map(k => (
+                            <div key={k.id} className="koleksiyon-item" onClick={() => koleksiyonaToggle(k.id)}>
+                              <span style={{fontSize:'16px'}}>{eklenenKoleksiyonlar[k.id] ? '✅' : '○'}</span>
+                              <span>{k.ad}</span>
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>
@@ -468,7 +490,16 @@ export default function KarakterDetay() {
                     {new Date(y.created_at).toLocaleDateString('tr-TR')}
                   </span>
                 </div>
-                <div style={{fontSize:'15px', color:'#bbb', fontFamily:'EB Garamond, serif', lineHeight:'1.6'}}>{y.yorum}</div>
+                <div style={{fontSize:'15px', color:'#bbb', fontFamily:'EB Garamond, serif', lineHeight:'1.6', marginBottom:'8px'}}>{y.yorum}</div>
+                {/* YORUM BEĞENİ BUTONU */}
+                <div style={{display:'flex', justifyContent:'flex-end'}}>
+                  <button className="yorum-begen-btn" onClick={() => yorumBegen(y.id)}>
+                    <span style={{fontSize:'13px'}}>{yorumBegenileri[y.id] ? '❤️' : '🤍'}</span>
+                    <span style={{fontSize:'12px', color: yorumBegenileri[y.id] ? '#D4537E' : '#555', fontFamily:'Cinzel, serif'}}>
+                      {yorumBegeniSayilari[y.id] || 0}
+                    </span>
+                  </button>
+                </div>
               </div>
             ))
           )}
@@ -490,11 +521,7 @@ export default function KarakterDetay() {
                   <div style={{position:'absolute', left:0, top:0, bottom:0, width:'3px', background:'linear-gradient(to bottom, #7F77DD, #c9a96e)', opacity:0.5}}/>
                   <div style={{display:'flex', gap:'12px', padding:'14px 14px 14px 18px'}}>
                     <div style={{width:'60px', height:'80px', borderRadius:'6px', overflow:'hidden', flexShrink:0, background:'rgba(127,119,221,0.1)'}}>
-                      {k.gorsel_url ? (
-                        <img src={k.gorsel_url} style={{width:'100%', height:'100%', objectFit:'cover'}}/>
-                      ) : (
-                        <div style={{width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'24px'}}>📖</div>
-                      )}
+                      {k.gorsel_url ? <img src={k.gorsel_url} style={{width:'100%', height:'100%', objectFit:'cover'}}/> : <div style={{width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'24px'}}>📖</div>}
                     </div>
                     <div style={{flex:1, minWidth:0}}>
                       <div style={{fontSize:'13px', fontFamily:'Cinzel, serif', fontWeight:'600', marginBottom:'4px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{k.karakter_adi}</div>
