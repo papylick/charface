@@ -26,6 +26,7 @@ export default function Home() {
   const [dahaVar, setDahaVar] = useState(true)
   const [yukleniyorDaha, setYukleniyorDaha] = useState(false)
   const [okunmamisMesaj, setOkunmamisMesaj] = useState(0)
+  const [kesifAcik, setKesifAcik] = useState(false)
   const gozlemciRef = useRef(null)
   const sonElemanRef = useRef(null)
   const aramaRef = useRef(null)
@@ -191,6 +192,14 @@ export default function Home() {
     }
   }
 
+  async function rastgeleKarakter() {
+    const { data } = await supabase.from('karakterler').select('id')
+    if (data && data.length > 0) {
+      const rastgele = data[Math.floor(Math.random() * data.length)]
+      navigate(`/karakter/${rastgele.id}`)
+    }
+  }
+
   function kitabiAc() {
     setKitapAcik(true)
     setTimeout(() => setIcerikGoster(true), 1200)
@@ -249,6 +258,8 @@ export default function Home() {
         .kitap-oneri { display:flex; align-items:center; gap:12px; padding:10px 14px; cursor:pointer; transition:background 0.2s; border-bottom:1px solid rgba(255,255,255,0.04); }
         .kitap-oneri:hover { background:rgba(201,169,110,0.08); }
         .kitap-oneri:last-child { border-bottom:none; }
+        .kesif-item { display:flex; align-items:center; gap:10px; padding:10px 14px; border-radius:6px; cursor:pointer; transition:background 0.2s; font-family:'EB Garamond',serif; font-size:14px; color:#bbb; }
+        .kesif-item:hover { background:rgba(201,169,110,0.08); color:white; }
       `}</style>
 
       {!icerikGoster && (
@@ -319,7 +330,30 @@ export default function Home() {
                   </button>
                   <button className="btn-primary nav-btn" onClick={() => navigate('/karakter-ekle')}>{t.ekle}</button>
                   <button className="btn-secondary nav-btn" onClick={() => navigate('/feed')}>{t.akis}</button>
-                  <button className="btn-secondary nav-btn" onClick={() => navigate('/trending')}>🔥</button><button className="btn-secondary nav-btn" onClick={() => navigate('/kullanici-ara')}>👤</button>
+
+                  {/* KEŞFET DROPDOWN */}
+                  <div style={{position:'relative'}}>
+                    <button className="btn-secondary nav-btn" onClick={() => setKesifAcik(prev => !prev)}
+                      style={{display:'flex', alignItems:'center', gap:'6px'}}>
+                      🧭 Keşfet
+                    </button>
+                    {kesifAcik && (
+                      <div style={{position:'absolute', top:'100%', right:0, marginTop:'8px', background:'linear-gradient(145deg,#12101a,#1a1228)', border:'1px solid rgba(201,169,110,0.2)', borderRadius:'10px', padding:'8px', minWidth:'180px', zIndex:9999, boxShadow:'0 10px 40px rgba(0,0,0,0.6)'}}>
+                        {[
+                          { emoji:'🔥', label:'Trending', action: () => navigate('/trending') },
+                          { emoji:'🎲', label:'Rastgele Karakter', action: rastgeleKarakter },
+                          { emoji:'👤', label:'Kullanıcı Ara', action: () => navigate('/kullanici-ara') },
+                          { emoji:'🔍', label:'Detaylı Arama', action: () => navigate('/arama') },
+                        ].map(item => (
+                          <div key={item.label} className="kesif-item" onClick={() => { item.action(); setKesifAcik(false) }}>
+                            <span>{item.emoji}</span>
+                            <span>{item.label}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
                   <button className="btn-secondary nav-btn" onClick={() => navigate('/profil')}>{profilAdi}</button>
                   <button onClick={cikisYap} style={{background:'transparent', border:'none', color:'#666', cursor:'pointer', fontSize:'12px', fontFamily:'Cinzel, serif'}}
                     onMouseEnter={e => e.target.style.color='#999'}
@@ -350,34 +384,11 @@ export default function Home() {
 
           <div ref={aramaRef} className="search-input-wrapper" style={{position:'relative', maxWidth:'520px', margin:'0 auto'}}>
             <input type="text" placeholder={t.aramaPlaceholder} value={arama}
-  onChange={e => aramaDegisti(e.target.value)}
-  onFocus={() => router.push('/arama')}
-  className="search-input" autoComplete="off"
+              onChange={e => aramaDegisti(e.target.value)}
+              onFocus={() => router.push('/arama')}
+              className="search-input" autoComplete="off"
               style={{width:'100%', padding:'16px 24px 16px 50px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(201,169,110,0.3)', borderRadius:'8px', color:'white', fontSize:'15px', boxSizing:'border-box', fontFamily:'EB Garamond, serif', transition:'all 0.3s ease'}}/>
             <span style={{position:'absolute', left:'18px', top:'50%', transform:'translateY(-50%)', color:'#c9a96e', fontSize:'16px'}}>🔍</span>
-
-            {aramaMenuAcik && aramaOnerileri.length > 0 && (
-              <div style={{position:'absolute', top:'100%', left:0, right:0, background:'linear-gradient(145deg, #12101a, #1a1228)', border:'1px solid rgba(201,169,110,0.2)', borderRadius:'10px', marginTop:'6px', zIndex:9999, boxShadow:'0 10px 40px rgba(0,0,0,0.6)', overflow:'hidden', textAlign:'left'}}>
-                <div style={{padding:'8px 14px', fontSize:'10px', color:'#666', fontFamily:'Cinzel, serif', letterSpacing:'2px', borderBottom:'1px solid rgba(255,255,255,0.04)'}}>KİTAP ÖNERİLERİ</div>
-                {aramaOnerileri.map((k, i) => (
-                  <div key={i} className="kitap-oneri" onClick={() => kitapSec(k.baslik)}>
-                    {k.kapak ? (
-                      <>
-                        <img src={k.kapak} style={{width:'32px', height:'44px', objectFit:'cover', borderRadius:'3px', flexShrink:0}}
-                          onError={e => { e.currentTarget.style.display='none'; e.currentTarget.nextSibling.style.display='flex' }}/>
-                        <div style={{width:'32px', height:'44px', background:'rgba(127,119,221,0.2)', borderRadius:'3px', display:'none', alignItems:'center', justifyContent:'center', fontSize:'16px', flexShrink:0}}>📖</div>
-                      </>
-                    ) : (
-                      <div style={{width:'32px', height:'44px', background:'rgba(127,119,221,0.2)', borderRadius:'3px', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'16px', flexShrink:0}}>📖</div>
-                    )}
-                    <div>
-                      <div style={{fontSize:'13px', color:'white', fontFamily:'EB Garamond, serif', fontWeight:'600'}}>{k.baslik}</div>
-                      {k.yazar && <div style={{fontSize:'11px', color:'#888', fontFamily:'EB Garamond, serif', fontStyle:'italic'}}>{k.yazar}</div>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </div>
 
