@@ -325,7 +325,10 @@ export default function KarakterDetay() {
                 <h1 style={{fontSize:'36px', fontWeight:'700', fontFamily:'Cinzel, serif', letterSpacing:'2px', marginBottom:'8px', textShadow:'0 0 30px rgba(127,119,221,0.3)'}}>
                   {karakter.karakter_adi}
                 </h1>
-                <div style={{fontSize:'14px', color:'#c9a96e', fontFamily:'EB Garamond, serif', fontStyle:'italic', marginBottom:'12px'}}>{karakter.kitap_adi}</div>
+             <div onClick={() => router.push(`/kitap/${encodeURIComponent(karakter.kitap_adi)}`)}
+  style={{fontSize:'14px', color:'#c9a96e', fontFamily:'EB Garamond, serif', fontStyle:'italic', marginBottom:'12px', cursor:'pointer', textDecoration:'underline', textDecorationColor:'rgba(201,169,110,0.3)'}}>
+  {karakter.kitap_adi}
+</div>
                 {etiketler.length > 0 && (
                   <div style={{display:'flex', flexWrap:'wrap', gap:'8px', marginBottom:'16px'}}>
                     {etiketler.map(e => (
